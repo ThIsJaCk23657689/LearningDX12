@@ -20,6 +20,11 @@ set_target_properties(${MY_EXECUTABLE}
         CXX_EXTENSIONS OFF
 )
 
+# define UNICODE marco to support chinese characters.
+if(WIN32)
+    target_compile_definitions(${MY_EXECUTABLE} PRIVATE UNICODE _UNICODE)
+endif()
+
 # 顯示相關資訊
 message(STATUS)
 message(STATUS "========== Build Information ==========")
