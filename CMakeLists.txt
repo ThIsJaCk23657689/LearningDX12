@@ -11,7 +11,7 @@ if (POLICY CMP0141)
 endif()
 
 project(${MY_PROJECT})
-add_executable(${MY_EXECUTABLE})
+add_executable(${MY_EXECUTABLE} WIN32)
 
 set_target_properties(${MY_EXECUTABLE}
     PROPERTIES
