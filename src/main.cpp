@@ -1,6 +1,5 @@
-#include <Windows.h>
+#include "stdafx.hpp"
 #include "HelloWindow.hpp"
-#include "Win32App.hpp"
 
 _Use_decl_annotations_
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow )

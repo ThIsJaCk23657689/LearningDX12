@@ -11,6 +11,8 @@ if (POLICY CMP0141)
 endif()
 
 project(${MY_PROJECT})
+
+add_subdirectory(thirds/DirectX-Headers)
 add_executable(${MY_EXECUTABLE} WIN32)
 
 set_target_properties(${MY_EXECUTABLE}
@@ -44,11 +46,16 @@ message(STATUS)
 message(STATUS "========================================")
 
 # 將來源新增到此專案的可執行檔
-target_include_directories(${MY_EXECUTABLE} PRIVATE "include")
 file(GLOB MY_SOURCE CONFIGURE_DEPENDS
     "src/*.cpp"
 )
 target_sources(${MY_EXECUTABLE} PRIVATE ${MY_SOURCE})
+
+target_include_directories(${MY_EXECUTABLE} PRIVATE 
+    "include" 
+    "thirds/DirectX-Headers/include/directx"
+)
+target_link_libraries(${MY_EXECUTABLE} PRIVATE DirectX-Headers DirectX-Guids d3d12 dxgi)
 
 # 建立 Symlink 到 assets 資料夾
 add_custom_command(TARGET ${MY_EXECUTABLE} POST_BUILD

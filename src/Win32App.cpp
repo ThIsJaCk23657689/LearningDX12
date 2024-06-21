@@ -1,3 +1,4 @@
+#include "stdafx.hpp"
 #include "Win32App.hpp"
 #include "DXSample.hpp"
 

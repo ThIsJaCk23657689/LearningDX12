@@ -1,5 +1,6 @@
 #pragma once
-#include <string>
+#include "DXSampleHelper.hpp"
+#include "Win32App.hpp"
 
 class DXSample
 {
@@ -24,6 +25,10 @@ public:
 	void ParseCommandLineArgs( _In_reads_( argc ) wchar_t* argv[], int argc );
 
 protected:
+	void GetHardwareAdapter( _In_ IDXGIFactory1* pFactory, 
+							 _Outptr_result_maybenull_ IDXGIAdapter1** ppAdapter, 
+							 bool requestHightPerformanceAdapter = false );
+
 	// Viewport dimensions.
 	uint32_t m_width;
 	uint32_t m_height;

@@ -1,6 +1,8 @@
 #pragma once
 #include "DXSample.hpp"
 
+using Microsoft::WRL::ComPtr;
+
 class HelloWindow : public DXSample
 {
 public:
@@ -14,5 +16,19 @@ public:
 private:
 	void LoadPipeline();
 	void LoadAssets();
+
+	static const UINT FrameCount = 2;
+
+	// Pipeline objects;
+	ComPtr< IDXGISwapChain3 > m_spSwapChain;
+	ComPtr< ID3D12Device > m_spDevice;
+	ComPtr< ID3D12CommandQueue > m_spCommandQueue;
+	ComPtr< ID3D12DescriptorHeap > m_spRtvHeap;
+	ComPtr< ID3D12Resource > m_renderTargets[ FrameCount ];
+	ComPtr< ID3D12CommandAllocator > m_spCommandAllocator;
+	UINT m_rtvDescriptorSize;
+
+	// Synchronization objects.
+	UINT m_frameIndex;
 
 };
