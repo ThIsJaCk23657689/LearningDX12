@@ -8,7 +8,11 @@ DXSample::DXSample( uint32_t width, uint32_t height, std::wstring title ) :
     m_height( height ),
     m_title( title )
 {
+    WCHAR assetsPath[ 512 ];
+    GetAssetsPath( assetsPath, _countof( assetsPath ) );
+    m_assesPath = assetsPath;
 
+	m_aspectRatio = static_cast< float >( width ) / static_cast< float >( height );
 }
 
 DXSample::~DXSample()
@@ -19,6 +23,11 @@ _Use_decl_annotations_
 void DXSample::ParseCommandLineArgs( wchar_t* argv[], int argc )
 {
     return;
+}
+
+std::wstring DXSample::GetAssetFullPath( LPCWSTR assertName )
+{
+    return m_assesPath + assertName;
 }
 
 // Helper function for acquiring the first available hardware adapter that supports Direct3D 12.

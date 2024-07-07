@@ -25,6 +25,8 @@ public:
 	void ParseCommandLineArgs( _In_reads_( argc ) wchar_t* argv[], int argc );
 
 protected:
+	std::wstring GetAssetFullPath( LPCWSTR assertName );
+
 	void GetHardwareAdapter( _In_ IDXGIFactory1* pFactory, 
 							 _Outptr_result_maybenull_ IDXGIAdapter1** ppAdapter, 
 							 bool requestHightPerformanceAdapter = false );
@@ -32,8 +34,12 @@ protected:
 	// Viewport dimensions.
 	uint32_t m_width;
 	uint32_t m_height;
+	float m_aspectRatio;
 
 private:
+	// Root assert path.
+	std::wstring m_assesPath;
+
 	// Window title.
 	std::wstring m_title;
 
