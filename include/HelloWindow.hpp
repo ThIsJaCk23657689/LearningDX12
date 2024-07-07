@@ -16,6 +16,8 @@ public:
 private:
 	void LoadPipeline();
 	void LoadAssets();
+	void PopulateCommandList();
+	void WaitForPreviousFrame();
 
 	static const UINT FrameCount = 2;
 
@@ -26,9 +28,14 @@ private:
 	ComPtr< ID3D12DescriptorHeap > m_spRtvHeap;
 	ComPtr< ID3D12Resource > m_renderTargets[ FrameCount ];
 	ComPtr< ID3D12CommandAllocator > m_spCommandAllocator;
+	ComPtr< ID3D12GraphicsCommandList > m_spCommandList;
+	ComPtr< ID3D12PipelineState > m_spPipelineState;
 	UINT m_rtvDescriptorSize;
 
 	// Synchronization objects.
 	UINT m_frameIndex;
+	HANDLE m_hFenceEvent;
+	ComPtr < ID3D12Fence > m_spFence;
+	UINT64 m_fenceValue;
 
 };
