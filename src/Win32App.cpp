@@ -32,15 +32,24 @@ int Win32App::Run( DXSample* pSample, HINSTANCE hInstance, int nCmdShow )
 	RECT windowRect = { 0, 0, static_cast< LONG >( pSample->GetWidth() ), static_cast< LONG >( pSample->GetHeight() ) };
 	AdjustWindowRect( &windowRect, WS_OVERLAPPEDWINDOW, FALSE );
 
+	int screenWidth = GetSystemMetrics( SM_CXSCREEN );
+	int screenHeight = GetSystemMetrics( SM_CYSCREEN );
+
+	int windowWidth = windowRect.right - windowRect.left;
+	int windowHeight = windowRect.bottom - windowRect.top;
+
+	int posX = max( 0, ( screenWidth - windowWidth ) / 2 );
+	int posY = max( 0, ( screenHeight - windowHeight ) / 2 );
+
 	// create window and store and handle to it.
 	m_hWnd = CreateWindow(
 		windowClass.lpszClassName,
 		pSample->GetTitle(),
 		WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, 
-		CW_USEDEFAULT, 
-		windowRect.right - windowRect.left,
-		windowRect.bottom - windowRect.top,
+		posX,
+		posY,
+		windowWidth,
+		windowHeight,
 		nullptr,	// we have no parent window.
 		nullptr,	// we aren't using menus.
 		hInstance,
