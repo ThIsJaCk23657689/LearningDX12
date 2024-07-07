@@ -60,7 +60,7 @@ target_include_directories(${MY_EXECUTABLE} PRIVATE
     "thirds/DirectX-Headers/include/directx"
     "${DIRECTX_MATH_DIR}/Inc"
 )
-target_link_libraries(${MY_EXECUTABLE} PRIVATE DirectX-Headers DirectX-Guids d3d12 dxgi)
+target_link_libraries(${MY_EXECUTABLE} PRIVATE DirectX-Headers DirectX-Guids d3d12 dxgi d3dcompiler)
 
 # 建立 Symlink 到 assets 資料夾
 add_custom_command(TARGET ${MY_EXECUTABLE} POST_BUILD
