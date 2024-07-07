@@ -21,7 +21,15 @@ private:
 
 	static const UINT FrameCount = 2;
 
+	struct Vertex 
+	{
+		DirectX::XMFLOAT3 position;
+		DirectX::XMFLOAT4 color;
+	};
+
 	// Pipeline objects;
+	CD3DX12_VIEWPORT m_viewport;
+	CD3DX12_RECT m_scissorRect;
 	ComPtr< IDXGISwapChain3 > m_spSwapChain;
 	ComPtr< ID3D12Device > m_spDevice;
 	ComPtr< ID3D12CommandQueue > m_spCommandQueue;
@@ -30,7 +38,12 @@ private:
 	ComPtr< ID3D12CommandAllocator > m_spCommandAllocator;
 	ComPtr< ID3D12GraphicsCommandList > m_spCommandList;
 	ComPtr< ID3D12PipelineState > m_spPipelineState;
+	ComPtr< ID3D12RootSignature > m_spRootSignature;
 	UINT m_rtvDescriptorSize;
+
+	// App resources.
+	ComPtr< ID3D12Resource > m_spVertexBuffer;
+	D3D12_VERTEX_BUFFER_VIEW m_spVertexBufferView;
 
 	// Synchronization objects.
 	UINT m_frameIndex;
