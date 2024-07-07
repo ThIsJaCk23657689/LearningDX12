@@ -45,6 +45,10 @@ endif ()
 message(STATUS)
 message(STATUS "========================================")
 
+# 處理 submodule -> DirectXMath
+set(DIRECTX_MATH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirds/DirectXMath")
+add_subdirectory(${DIRECTX_MATH_DIR} "${CMAKE_BINARY_DIR}/DirectXMath")
+
 # 將來源新增到此專案的可執行檔
 file(GLOB MY_SOURCE CONFIGURE_DEPENDS
     "src/*.cpp"
@@ -54,6 +58,7 @@ target_sources(${MY_EXECUTABLE} PRIVATE ${MY_SOURCE})
 target_include_directories(${MY_EXECUTABLE} PRIVATE 
     "include" 
     "thirds/DirectX-Headers/include/directx"
+    "${DIRECTX_MATH_DIR}/Inc"
 )
 target_link_libraries(${MY_EXECUTABLE} PRIVATE DirectX-Headers DirectX-Guids d3d12 dxgi)
 

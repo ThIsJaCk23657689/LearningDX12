@@ -1,3 +1,6 @@
 [submodule "thirds/DirectX-Headers"]
 	path = thirds/DirectX-Headers
 	url = https://github.com/microsoft/DirectX-Headers.git
+[submodule "thirds/DirectXMath"]
+	path = thirds/DirectXMath
+	url = https://github.com/microsoft/DirectXMath.git
