@@ -25,6 +25,7 @@ private:
 	{
 		DirectX::XMFLOAT3 position;
 		DirectX::XMFLOAT4 color;
+		DirectX::XMFLOAT2 uv;
 	};
 
 	// Pipeline objects;
@@ -34,6 +35,7 @@ private:
 	ComPtr< ID3D12Device > m_spDevice;
 	ComPtr< ID3D12CommandQueue > m_spCommandQueue;
 	ComPtr< ID3D12DescriptorHeap > m_spRtvHeap;
+	ComPtr< ID3D12DescriptorHeap > m_spSrvHeap;
 	ComPtr< ID3D12Resource > m_renderTargets[ FrameCount ];
 	ComPtr< ID3D12CommandAllocator > m_spCommandAllocator;
 	ComPtr< ID3D12GraphicsCommandList > m_spCommandList;
@@ -44,6 +46,10 @@ private:
 	// App resources.
 	ComPtr< ID3D12Resource > m_spVertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_spVertexBufferView;
+
+	// Texture
+	ComPtr< ID3D12Resource > m_spTexture;
+
 
 	// Synchronization objects.
 	UINT m_frameIndex;
