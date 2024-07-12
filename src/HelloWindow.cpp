@@ -231,9 +231,13 @@ void HelloWindow::LoadAssets()
 		// Define the geometry for a triangle.
 		Vertex triangleVertices[] = 
 		{
-			{ {  0.0f,   0.25f * m_aspectRatio, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 0.5f, 0.0f } },
-			{ {  0.25f, -0.25f * m_aspectRatio, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-			{ { -0.25f, -0.25f * m_aspectRatio, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
+			{ {  0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+			{ {  0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+			{ { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } },
+
+			{ {  0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+			{ { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } },
+			{ { -0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
 		};
 
 		const UINT vertexBufferSize = sizeof( triangleVertices );
@@ -381,7 +385,7 @@ void HelloWindow::PopulateCommandList()
 	m_spCommandList->ClearRenderTargetView( rtvHandle, clearColor, 0, nullptr );
 	m_spCommandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
 	m_spCommandList->IASetVertexBuffers( 0, 1, &m_spVertexBufferView );
-	m_spCommandList->DrawInstanced( 3, 1, 0, 0 );
+	m_spCommandList->DrawInstanced( 6, 1, 0, 0 );
 
 	// Indicate that the back buffer will now be used to present.
 	m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_renderTargets[ m_frameIndex ].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT ) );
