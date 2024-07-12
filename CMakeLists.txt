@@ -59,6 +59,7 @@ target_include_directories(${MY_EXECUTABLE} PRIVATE
     "include" 
     "thirds/DirectX-Headers/include/directx"
     "${DIRECTX_MATH_DIR}/Inc"
+    "thirds/stb"
 )
 target_link_libraries(${MY_EXECUTABLE} PRIVATE DirectX-Headers DirectX-Guids d3d12 dxgi d3dcompiler)
 
