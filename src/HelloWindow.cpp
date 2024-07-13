@@ -227,9 +227,10 @@ void HelloWindow::LoadAssets()
 	ThrowIfFailed( m_spDevice->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_spCommandAllocator.Get(), m_spPipelineState.Get(), IID_PPV_ARGS( &m_spCommandList ) ) );
 
 	// Create the vertex buffer.
+	ComPtr< ID3D12Resource > spVertextBufferUploadHeap;
 	{
 		// Define the geometry for a triangle.
-		Vertex triangleVertices[] = 
+		std::vector< Vertex > vertices =
 		{
 			{ {  0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
 			{ {  0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
@@ -240,27 +241,41 @@ void HelloWindow::LoadAssets()
 			{ { -0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
 		};
 
-		const UINT vertexBufferSize = sizeof( triangleVertices );
+		const size_t vertexBufferSize = vertices.size() * sizeof( Vertex );
 
 		// Note: using upload heaps to transfer static data like vertex buffers is not recommended.
 		// Every time the GPU needs it, the upload heap will be marshalled over.
 		// Please read up on Default Heap usage. An upload heap is used here for code simplicity and
 		// because there are very few vertices to actually transfer.
+		auto uploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer( vertexBufferSize );
 		ThrowIfFailed( m_spDevice->CreateCommittedResource(
 			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_UPLOAD ),
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer( vertexBufferSize ),
+			&uploadBufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS( &m_spVertexBuffer )
+			IID_PPV_ARGS( &spVertextBufferUploadHeap )
 		) );
 
 		// Copy the triangle data to the vertex buffer.
 		UINT8* pVertexDataBegin;
 		CD3DX12_RANGE readRange( 0, 0 ); // we do not intend to read from this resource on the CPU.
-		ThrowIfFailed( m_spVertexBuffer->Map( 0, &readRange, reinterpret_cast< void** >( &pVertexDataBegin ) ) );
-		memcpy( pVertexDataBegin, triangleVertices, sizeof( triangleVertices ) );
-		m_spVertexBuffer->Unmap( 0, nullptr );
+		ThrowIfFailed( spVertextBufferUploadHeap->Map( 0, &readRange, reinterpret_cast< void** >( &pVertexDataBegin ) ) );
+		memcpy( pVertexDataBegin, vertices.data(), vertexBufferSize );
+		spVertextBufferUploadHeap->Unmap( 0, nullptr );
+
+		// create vertex buffer in default heap
+		auto vertexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer( vertexBufferSize );
+		ThrowIfFailed( m_spDevice->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_DEFAULT ),
+			D3D12_HEAP_FLAG_NONE,
+			&vertexBufferDesc,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS( &m_spVertexBuffer )
+		) );
+		m_spCommandList->CopyBufferRegion( m_spVertexBuffer.Get(), 0, spVertextBufferUploadHeap.Get(), 0, vertexBufferSize );
+		m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_spVertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER ) );
 
 		// Initialize the vertex buffer view.
 		m_spVertexBufferView.BufferLocation = m_spVertexBuffer->GetGPUVirtualAddress();
