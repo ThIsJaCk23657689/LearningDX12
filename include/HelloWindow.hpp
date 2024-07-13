@@ -38,7 +38,9 @@ private:
 	ComPtr< ID3D12DescriptorHeap > m_spSrvHeap;
 	ComPtr< ID3D12Resource > m_renderTargets[ FrameCount ];
 	ComPtr< ID3D12CommandAllocator > m_spCommandAllocator;
+	ComPtr< ID3D12CommandAllocator > m_spBundleAllocator;
 	ComPtr< ID3D12GraphicsCommandList > m_spCommandList;
+	ComPtr< ID3D12GraphicsCommandList > m_spBundle;
 	ComPtr< ID3D12PipelineState > m_spPipelineState;
 	ComPtr< ID3D12RootSignature > m_spRootSignature;
 	UINT m_rtvDescriptorSize;

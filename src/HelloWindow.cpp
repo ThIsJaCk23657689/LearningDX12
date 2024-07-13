@@ -135,6 +135,7 @@ void HelloWindow::LoadPipeline()
 	}
 
 	ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_spCommandAllocator ) ) );
+	ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS( &m_spBundleAllocator ) ) );
 }
 
 // Load the sample assets.
@@ -391,6 +392,17 @@ void HelloWindow::LoadAssets()
 	ID3D12CommandList* ppCommandLists[] = { m_spCommandList.Get() };
 	m_spCommandQueue->ExecuteCommandLists( _countof( ppCommandLists ), ppCommandLists );
 
+	// Create and record the bundle
+	{
+		ThrowIfFailed( m_spDevice->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_spBundleAllocator.Get(), m_spPipelineState.Get(), IID_PPV_ARGS( &m_spBundle ) ) );
+		m_spBundle->SetGraphicsRootSignature( m_spRootSignature.Get() );
+		m_spBundle->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
+		m_spBundle->IASetVertexBuffers( 0, 1, &m_spVertexBufferView );
+		m_spBundle->IASetIndexBuffer( &m_spIndexBufferView );
+		m_spBundle->DrawIndexedInstanced( 6, 1, 0, 0, 0 );
+		ThrowIfFailed( m_spBundle->Close() );
+	}
+
 	// Create synchronization objects and wait until assets have been uploaded to the GPU.
 	{
 		ThrowIfFailed( m_spDevice->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_spFence ) ) );
@@ -424,6 +436,7 @@ void HelloWindow::PopulateCommandList()
 	// Set necessary state.
 	m_spCommandList->SetGraphicsRootSignature( m_spRootSignature.Get() );
 
+	// Every command list only allow sets descriptor deap one time. 
 	ID3D12DescriptorHeap* ppHeaps[] = { m_spSrvHeap.Get() };
 	m_spCommandList->SetDescriptorHeaps( _countof( ppHeaps ), ppHeaps );
 
@@ -440,10 +453,8 @@ void HelloWindow::PopulateCommandList()
 	// Record command.
 	const float clearColor[] = { 0.278f, 0.278f, 0.314f, 1.0f };
 	m_spCommandList->ClearRenderTargetView( rtvHandle, clearColor, 0, nullptr );
-	m_spCommandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
-	m_spCommandList->IASetVertexBuffers( 0, 1, &m_spVertexBufferView );
-	m_spCommandList->IASetIndexBuffer( &m_spIndexBufferView );
-	m_spCommandList->DrawIndexedInstanced( 6, 1, 0, 0, 0 );
+
+	m_spCommandList->ExecuteBundle( m_spBundle.Get() );
 
 	// Indicate that the back buffer will now be used to present.
 	m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_renderTargets[ m_frameIndex ].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT ) );
