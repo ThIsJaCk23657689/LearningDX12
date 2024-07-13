@@ -227,16 +227,13 @@ void HelloWindow::LoadAssets()
 	ThrowIfFailed( m_spDevice->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_spCommandAllocator.Get(), m_spPipelineState.Get(), IID_PPV_ARGS( &m_spCommandList ) ) );
 
 	// Create the vertex buffer.
-	ComPtr< ID3D12Resource > spVertextBufferUploadHeap;
+	ComPtr< ID3D12Resource > spVertexBufferUploadHeap;
 	{
 		// Define the geometry for a triangle.
 		std::vector< Vertex > vertices =
 		{
 			{ {  0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
 			{ {  0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-			{ { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } },
-
-			{ {  0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
 			{ { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } },
 			{ { -0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
 		};
@@ -254,15 +251,15 @@ void HelloWindow::LoadAssets()
 			&uploadBufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS( &spVertextBufferUploadHeap )
+			IID_PPV_ARGS( &spVertexBufferUploadHeap )
 		) );
 
 		// Copy the triangle data to the vertex buffer.
 		UINT8* pVertexDataBegin;
 		CD3DX12_RANGE readRange( 0, 0 ); // we do not intend to read from this resource on the CPU.
-		ThrowIfFailed( spVertextBufferUploadHeap->Map( 0, &readRange, reinterpret_cast< void** >( &pVertexDataBegin ) ) );
+		ThrowIfFailed( spVertexBufferUploadHeap->Map( 0, &readRange, reinterpret_cast< void** >( &pVertexDataBegin ) ) );
 		memcpy( pVertexDataBegin, vertices.data(), vertexBufferSize );
-		spVertextBufferUploadHeap->Unmap( 0, nullptr );
+		spVertexBufferUploadHeap->Unmap( 0, nullptr );
 
 		// create vertex buffer in default heap
 		auto vertexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer( vertexBufferSize );
@@ -274,13 +271,58 @@ void HelloWindow::LoadAssets()
 			nullptr,
 			IID_PPV_ARGS( &m_spVertexBuffer )
 		) );
-		m_spCommandList->CopyBufferRegion( m_spVertexBuffer.Get(), 0, spVertextBufferUploadHeap.Get(), 0, vertexBufferSize );
+		m_spCommandList->CopyBufferRegion( m_spVertexBuffer.Get(), 0, spVertexBufferUploadHeap.Get(), 0, vertexBufferSize );
 		m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_spVertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER ) );
 
 		// Initialize the vertex buffer view.
 		m_spVertexBufferView.BufferLocation = m_spVertexBuffer->GetGPUVirtualAddress();
 		m_spVertexBufferView.StrideInBytes = sizeof( Vertex );
 		m_spVertexBufferView.SizeInBytes = vertexBufferSize;
+	}
+
+	// Create Index Buffer
+	ComPtr< ID3D12Resource > spIndexBufferUploadHeap;
+	{
+		std::vector< uint16_t > indices =
+		{
+			0, 1, 2,
+			0, 2, 3
+		};
+
+		const size_t indexBufferSize = indices.size() * sizeof( uint16_t );
+
+		ThrowIfFailed( m_spDevice->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_UPLOAD ),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer( indexBufferSize ),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS( &spIndexBufferUploadHeap )
+		) );
+
+		// Copy the triangle data to the vertex buffer.
+		UINT8* pIndexDataBegin;
+		CD3DX12_RANGE readRange( 0, 0 ); // we do not intend to read from this resource on the CPU.
+		ThrowIfFailed( spIndexBufferUploadHeap->Map( 0, &readRange, reinterpret_cast< void** >( &pIndexDataBegin ) ) );
+		memcpy( pIndexDataBegin, indices.data(), indexBufferSize );
+		spIndexBufferUploadHeap->Unmap( 0, nullptr );
+
+		// create vertex buffer in default heap
+		ThrowIfFailed( m_spDevice->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_DEFAULT ),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer( indexBufferSize ),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS( &m_spIndexBuffer )
+		) );
+		m_spCommandList->CopyBufferRegion( m_spIndexBuffer.Get(), 0, spIndexBufferUploadHeap.Get(), 0, indexBufferSize );
+		m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_spIndexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER ) );
+
+		// Initialize the vertex buffer view.
+		m_spIndexBufferView.BufferLocation = m_spIndexBuffer->GetGPUVirtualAddress();
+		m_spIndexBufferView.SizeInBytes = indexBufferSize;
+		m_spIndexBufferView.Format = DXGI_FORMAT_R16_UINT;
 	}
 
 	// Note: ComPtr's are CPU objects but this resource needs to stay in scope until
@@ -400,7 +442,8 @@ void HelloWindow::PopulateCommandList()
 	m_spCommandList->ClearRenderTargetView( rtvHandle, clearColor, 0, nullptr );
 	m_spCommandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
 	m_spCommandList->IASetVertexBuffers( 0, 1, &m_spVertexBufferView );
-	m_spCommandList->DrawInstanced( 6, 1, 0, 0 );
+	m_spCommandList->IASetIndexBuffer( &m_spIndexBufferView );
+	m_spCommandList->DrawIndexedInstanced( 6, 1, 0, 0, 0 );
 
 	// Indicate that the back buffer will now be used to present.
 	m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_renderTargets[ m_frameIndex ].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT ) );

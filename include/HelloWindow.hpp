@@ -47,6 +47,9 @@ private:
 	ComPtr< ID3D12Resource > m_spVertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_spVertexBufferView;
 
+	ComPtr< ID3D12Resource > m_spIndexBuffer;
+	D3D12_INDEX_BUFFER_VIEW m_spIndexBufferView;
+
 	// Texture
 	ComPtr< ID3D12Resource > m_spTexture;
 
