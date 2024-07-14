@@ -17,8 +17,16 @@ private:
 	void LoadPipeline();
 	void LoadAssets();
 	void PopulateCommandList();
-	void WaitForPreviousFrame();
+	void WaitForGpu();
+	void MoveToNextFrame();
 
+	// In the sample we overload the meaning of FrameCount to mean both the maximum
+	// number of frames that will be queued to the GPU at a time, as well as the number
+	// of back buffers in the DXGI swap chain. For the majority of applications, this is
+	// convenient and works well. However, there will be certain cases where an application
+	// may want to queue up more frames than there are back buffers available.
+	// It should be noted that excessive buffering of frames dependent our user input may result
+	// in noticeable latency in yout application.
 	static const UINT FrameCount = 2;
 
 	struct Vertex
@@ -45,7 +53,7 @@ private:
 	ComPtr< ID3D12DescriptorHeap > m_spRtvHeap;
 	ComPtr< ID3D12DescriptorHeap > m_spSrvHeap;
 	ComPtr< ID3D12Resource > m_renderTargets[ FrameCount ];
-	ComPtr< ID3D12CommandAllocator > m_spCommandAllocator;
+	ComPtr< ID3D12CommandAllocator > m_spCommandAllocator[ FrameCount ];
 	ComPtr< ID3D12CommandAllocator > m_spBundleAllocator;
 	ComPtr< ID3D12GraphicsCommandList > m_spCommandList;
 	ComPtr< ID3D12GraphicsCommandList > m_spBundle;
@@ -75,6 +83,6 @@ private:
 	UINT m_frameIndex;
 	HANDLE m_hFenceEvent;
 	ComPtr < ID3D12Fence > m_spFence;
-	UINT64 m_fenceValue;
+	UINT64 m_fenceValue[ FrameCount ] = { 0, 0 };
 
 };

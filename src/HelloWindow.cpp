@@ -91,13 +91,13 @@ void HelloWindow::OnRender()
 	// Present the frame.
 	ThrowIfFailed( m_spSwapChain->Present( 1, 0 ) );
 
-	WaitForPreviousFrame();
+	MoveToNextFrame();
 }
 
 void HelloWindow::OnDestroy()
 {
 	// Ensure that GPU is no langer refernencing resource that are about to be cleaned up by the destructor.
-	WaitForPreviousFrame();
+	WaitForGpu();
 
 	CloseHandle( m_hFenceEvent );
 }
@@ -188,10 +188,11 @@ void HelloWindow::LoadPipeline()
 			ThrowIfFailed( m_spSwapChain->GetBuffer( n, IID_PPV_ARGS( &m_renderTargets[ n ] ) ) );
 			m_spDevice->CreateRenderTargetView( m_renderTargets[ n ].Get(), nullptr, rtvHandle );
 			rtvHandle.Offset( 1, m_rtvDescriptorSize );
+
+			ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_spCommandAllocator[ n ] ) ) );
 		}
 	}
-
-	ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_spCommandAllocator ) ) );
+	
 	ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS( &m_spBundleAllocator ) ) );
 }
 
@@ -296,7 +297,7 @@ void HelloWindow::LoadAssets()
 	}
 
 	// create the command list
-	ThrowIfFailed( m_spDevice->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_spCommandAllocator.Get(), m_spPipelineState.Get(), IID_PPV_ARGS( &m_spCommandList ) ) );
+	ThrowIfFailed( m_spDevice->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_spCommandAllocator[ m_frameIndex ].Get(), m_spPipelineState.Get(), IID_PPV_ARGS(&m_spCommandList)));
 
 	// Create the vertex buffer.
 	ComPtr< ID3D12Resource > spVertexBufferUploadHeap;
@@ -550,8 +551,8 @@ void HelloWindow::LoadAssets()
 
 	// Create synchronization objects and wait until assets have been uploaded to the GPU.
 	{
-		ThrowIfFailed( m_spDevice->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_spFence ) ) );
-		m_fenceValue = 1;
+		ThrowIfFailed( m_spDevice->CreateFence( m_fenceValue[ m_frameIndex ], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_spFence ) ) );
+		m_fenceValue[ m_frameIndex ]++;
 
 		// Create an event handle to use for frame synchronization
 		m_hFenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
@@ -563,7 +564,7 @@ void HelloWindow::LoadAssets()
 		// Wait for the command list to execute; we are reusing the same command
 		// list in our main loop but for now, we just want to wait for setup to
 		// complete before continuing.
-		WaitForPreviousFrame();
+		WaitForGpu();
 	}
 }
 
@@ -572,11 +573,11 @@ void HelloWindow::PopulateCommandList()
 	// Command list allocators can only be reset when the associated
 	// command lists have finished execution on the GPU; apps should use
 	// fences to determine GPU execution progress.
-	ThrowIfFailed( m_spCommandAllocator->Reset() );
+	ThrowIfFailed( m_spCommandAllocator[ m_frameIndex ]->Reset() );
 
 	// However, when ExecuteCommandList() is called on a particular command list,
 	// that command list can be reset at any time and must be before re-recording
-	ThrowIfFailed( m_spCommandList->Reset( m_spCommandAllocator.Get(), m_spPipelineState.Get() ) );
+	ThrowIfFailed( m_spCommandList->Reset( m_spCommandAllocator[ m_frameIndex ].Get(), m_spPipelineState.Get() ) );
 
 	// Set necessary state.
 	m_spCommandList->SetGraphicsRootSignature( m_spRootSignature.Get() );
@@ -612,23 +613,37 @@ void HelloWindow::PopulateCommandList()
 	ThrowIfFailed( m_spCommandList->Close() );
 }
 
-void HelloWindow::WaitForPreviousFrame()
+// Wait for pending GPU work to complete.
+void HelloWindow::WaitForGpu()
 {
-	// WATTING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
-	// This is code implemented as such for simplicity. The D3D12HelloFramebuffing
-	// sample illustrates how to use fences for efficient resource usage and to maximize GPU utillization
+	// Scheudle a Signal command in the queue.
+	ThrowIfFailed( m_spCommandQueue->Signal( m_spFence.Get(), m_fenceValue[ m_frameIndex ] ) );
 
-	// Signal and increment the fence value
-	const UINT64 fence = m_fenceValue;
-	ThrowIfFailed( m_spCommandQueue->Signal( m_spFence.Get(), fence ) );
-	m_fenceValue++;
+	// Wait untill the fence has been processed.
+	ThrowIfFailed( m_spFence->SetEventOnCompletion( m_fenceValue[ m_frameIndex ], m_hFenceEvent ) );
+	WaitForSingleObjectEx( m_hFenceEvent, INFINITE, FALSE );
 
-	// Wait untill the previous frame is finished.
-	if ( m_spFence->GetCompletedValue() < fence )
+	// Increment the fence value for the current frame.
+	m_fenceValue[ m_frameIndex ]++;
+}
+
+// Prepare to render the next frame.
+void HelloWindow::MoveToNextFrame()
+{
+	// Scheudle a Signal command in the queue.
+	const UINT64 currentFenceValue = m_fenceValue[ m_frameIndex ];
+	ThrowIfFailed( m_spCommandQueue->Signal( m_spFence.Get(), currentFenceValue ) );
+
+	// Update the frame index.
+	m_frameIndex = m_spSwapChain->GetCurrentBackBufferIndex();
+
+	// If the next frame is not ready to be rendered yet, wait until it is ready.
+	if ( m_spFence->GetCompletedValue() < m_fenceValue[ m_frameIndex ] )
 	{
-		ThrowIfFailed( m_spFence->SetEventOnCompletion( fence, m_hFenceEvent ) );
-		WaitForSingleObject( m_hFenceEvent, INFINITE );
+		ThrowIfFailed( m_spFence->SetEventOnCompletion( m_fenceValue[ m_frameIndex ], m_hFenceEvent ) );
+		WaitForSingleObjectEx( m_hFenceEvent, INFINITE, FALSE );
 	}
 
-	m_frameIndex = m_spSwapChain->GetCurrentBackBufferIndex();
+	// Set the fence value for the next frame.
+	m_fenceValue[ m_frameIndex ] = currentFenceValue + 1;
 }
