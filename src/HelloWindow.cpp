@@ -33,11 +33,19 @@ void HelloWindow::OnUpdate( const StepTimer& kTimer )
 		// Identity
 		model = XMMatrixIdentity();
 
+		// Rotate
+		float angle = Math::Radians( 50.0f ) * fCurrentTime;
+		XMVECTOR rotationAxis = XMVectorSet( 0.5f, 1.0f, 0.0f, 0.0f );
+		XMMATRIX rotationMatrix = XMMatrixRotationAxis( rotationAxis, angle );
+
+		// create world matrix by first rotating the cube and then translating it.
+		model = XMMatrixMultiply( model, rotationMatrix );
+
 		// Trans
 		model = XMMatrixMultiply( model, XMMatrixTranslation( 0.0, 0.0f, 0.0f ) );
 
-		// Rotate
-		model = XMMatrixMultiply( model, XMMatrixRotationZ( fCurrentTime ) );
+		// must transpose the matrix before sending it to the GPU.
+		model = XMMatrixTranspose( model );
 
 		// Update back
 		XMStoreFloat4x4( &m_kConstantBuffer.model, model );
@@ -48,12 +56,16 @@ void HelloWindow::OnUpdate( const StepTimer& kTimer )
 		XMMATRIX view = XMMatrixIdentity();
 		XMMATRIX proj = XMMatrixPerspectiveFovLH( Math::Radians( 45.0 ), m_aspectRatio, 0.1f, 1000.0f );
 
-		XMVECTOR cameraPos = XMVectorSet( 0.0f, 0.0f, -2.0f, 0.0f );
+		XMVECTOR cameraPos = XMVectorSet( 0.0f, 0.0f, -3.0f, 0.0f );
 		XMVECTOR cameraTarget = XMVectorSet( 0.0f, 0.0f, 0.0f, 0.0f );
 		XMVECTOR cameraUp = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 		view = XMMatrixLookAtLH( cameraPos, cameraTarget, cameraUp );
 
 		XMMATRIX viewProj = XMMatrixMultiply( view, proj );
+		
+		// must transpose the matrix before sending it to the GPU.
+		viewProj = XMMatrixTranspose( viewProj );
+		
 		XMStoreFloat4x4( &m_kConstantBuffer.viewProj, viewProj );
 	}
 
@@ -292,10 +304,41 @@ void HelloWindow::LoadAssets()
 		// Define the geometry for a triangle.
 		std::vector< Vertex > vertices =
 		{
-			{ {  0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-			{ {  0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-			{ { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } },
-			{ { -0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
+			// front face
+			{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+			{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+			{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } },
+			{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
+
+			// back face
+			{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 1.0f, 1.0f }, { 1.0f, 0.0f } },
+			{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
+			{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+			{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
+			
+			// right face
+			{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+			{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+			{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } },
+			{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
+
+			// left face
+			{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 1.0f, 1.0f }, { 1.0f, 0.0f } },
+			{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
+			{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+			{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
+
+			// top face
+			{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+			{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+			{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } },
+			{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
+			
+			// bottom face
+			{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f, 1.0f, 1.0f }, { 1.0f, 0.0f } },
+			{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
+			{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+			{ {  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
 		};
 
 		const size_t vertexBufferSize = vertices.size() * sizeof( Vertex );
@@ -345,8 +388,23 @@ void HelloWindow::LoadAssets()
 	{
 		std::vector< uint16_t > indices =
 		{
-			0, 1, 2,
-			0, 2, 3
+			0,  1,  2,
+			0,  2,  3,
+
+			4,  5,  6,
+			4,  6,  7,
+
+			8,  9, 10,
+			8, 10, 11,
+
+			12, 13, 14,
+			12, 14, 15,
+
+			16, 17, 18,
+			16, 18, 19,
+
+			20, 21, 22,
+			20, 22, 23,
 		};
 
 		const size_t indexBufferSize = indices.size() * sizeof( uint16_t );
