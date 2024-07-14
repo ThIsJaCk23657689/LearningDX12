@@ -1,7 +1,8 @@
 cbuffer SceneConstantBuffer : register( b0 )
 {
-    float4 offset;
-    float4 padding[ 15 ];
+    float4x4 model;
+    float4x4 viewProj;
+    float4 padding[ 8 ];
 };
 
 struct PSInput
@@ -18,7 +19,9 @@ PSInput VSMain( float4 position : POSITION, float4 color : COLOR, float4 uv : TE
 {
     PSInput result;
     
-    result.position = position + offset;
+    float4x4 modelViewProj = mul( model, viewProj );
+    
+    result.position = mul( float4( position.xyz, 1.0 ), modelViewProj );
     result.color = color;
     result.uv = uv;
     

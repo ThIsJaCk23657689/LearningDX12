@@ -21,14 +21,41 @@ void HelloWindow::OnInit()
 // Update frame-based values.
 void HelloWindow::OnUpdate( const StepTimer& kTimer )
 {
-	const float translationSpeed = 0.005f;
-	const float offsetBounds = 1.25f;
+	float fCurrentTime = static_cast< float >( kTimer.GetTotalSeconds() );
+	float fDeltaTime = static_cast< float >( kTimer.GetElapsedSeconds() );
 
-	m_kConstantBuffer.offset.x += translationSpeed;
-	if ( m_kConstantBuffer.offset.x > offsetBounds )
+	using namespace DirectX;
+	// Model Matrix
 	{
-		m_kConstantBuffer.offset.x = -offsetBounds;
+		XMMATRIX model = XMLoadFloat4x4( &m_kConstantBuffer.model );
+
+		// Identity
+		model = XMMatrixIdentity();
+
+		// Trans
+		model = XMMatrixMultiply( model, XMMatrixTranslation( 0.0, 0.0f, 0.0f ) );
+
+		// Rotate
+		model = XMMatrixMultiply( model, XMMatrixRotationZ( fCurrentTime ) );
+
+		// Update back
+		XMStoreFloat4x4( &m_kConstantBuffer.model, model );
 	}
+
+	// View Project Matrix
+	{
+		XMMATRIX view = XMMatrixIdentity();
+		XMMATRIX proj = XMMatrixPerspectiveFovLH( 45.0f * ( 3.14f / 180.0f ), m_aspectRatio, 0.1f, 1000.0f );
+
+		XMVECTOR cameraPos = XMVectorSet( 0.0f, 0.0f, -2.0f, 0.0f );
+		XMVECTOR cameraTarget = XMVectorSet( 0.0f, 0.0f, 0.0f, 0.0f );
+		XMVECTOR cameraUp = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
+		view = XMMatrixLookAtLH( cameraPos, cameraTarget, cameraUp );
+
+		XMMATRIX viewProj = XMMatrixMultiply( view, proj );
+		XMStoreFloat4x4( &m_kConstantBuffer.viewProj, viewProj );
+	}
+
 	memcpy( m_pCbvDataBegin, &m_kConstantBuffer, sizeof( m_kConstantBuffer ) );
 }
 
