@@ -21,12 +21,19 @@ private:
 
 	static const UINT FrameCount = 2;
 
-	struct Vertex 
+	struct Vertex
 	{
 		DirectX::XMFLOAT3 position;
 		DirectX::XMFLOAT4 color;
 		DirectX::XMFLOAT2 uv;
 	};
+
+	struct SceneConstantBuffer
+	{
+		DirectX::XMFLOAT4 offset = { 0, 0, 0, 0 };
+		float padding[ 60 ]; // Padding so the constant buffer is 256-byte aligned.
+	};
+	static_assert( ( sizeof( SceneConstantBuffer ) % 256 ) == 0, "Constant Buffer size must be 256-byte aligned" );
 
 	// Pipeline objects;
 	CD3DX12_VIEWPORT m_viewport;
@@ -44,6 +51,7 @@ private:
 	ComPtr< ID3D12PipelineState > m_spPipelineState;
 	ComPtr< ID3D12RootSignature > m_spRootSignature;
 	UINT m_rtvDescriptorSize;
+	UINT m_srvDescriptorSize;
 
 	// App resources.
 	ComPtr< ID3D12Resource > m_spVertexBuffer;
@@ -54,6 +62,12 @@ private:
 
 	// Texture
 	ComPtr< ID3D12Resource > m_spTexture;
+
+	// Constant Buffer
+	ComPtr< ID3D12Resource > m_spConstantBuffer;
+	D3D12_INDEX_BUFFER_VIEW m_spConstantBufferView;
+	SceneConstantBuffer m_kConstantBuffer;
+	UINT8* m_pCbvDataBegin = nullptr;
 
 
 	// Synchronization objects.

@@ -7,7 +7,8 @@ HelloWindow::HelloWindow( uint32_t width, uint32_t height, std::wstring title ) 
 	m_frameIndex( 0 ),
 	m_viewport( 0.0f, 0.0f, static_cast< float >( width ), static_cast< float >( height ) ),
 	m_scissorRect( 0, 0, static_cast< LONG >( width ), static_cast< LONG >( height ) ),
-	m_rtvDescriptorSize( 0 )
+	m_rtvDescriptorSize( 0 ),
+	m_srvDescriptorSize( 0 )
 {
 }
 
@@ -20,6 +21,15 @@ void HelloWindow::OnInit()
 // Update frame-based values.
 void HelloWindow::OnUpdate()
 {
+	const float translationSpeed = 0.005f;
+	const float offsetBounds = 1.25f;
+
+	m_kConstantBuffer.offset.x += translationSpeed;
+	if ( m_kConstantBuffer.offset.x > offsetBounds )
+	{
+		m_kConstantBuffer.offset.x = -offsetBounds;
+	}
+	memcpy( m_pCbvDataBegin, &m_kConstantBuffer, sizeof( m_kConstantBuffer ) );
 }
 
 // Render the scene.
@@ -113,12 +123,13 @@ void HelloWindow::LoadPipeline()
 
 		// Describe and create a shader resource view (SRV) heap for the texture.
 		D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-		srvHeapDesc.NumDescriptors = 1;
+		srvHeapDesc.NumDescriptors = 2;
 		srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 		ThrowIfFailed( m_spDevice->CreateDescriptorHeap( &srvHeapDesc, IID_PPV_ARGS( &m_spSrvHeap ) ) );
 
 		m_rtvDescriptorSize = m_spDevice->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
+		m_srvDescriptorSize = m_spDevice->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 	}
 
 	// create frame resources
@@ -153,11 +164,19 @@ void HelloWindow::LoadAssets()
 			featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 		}
 
-		CD3DX12_DESCRIPTOR_RANGE1 ranges[ 1 ];
-		ranges[ 0 ].Init( D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC );
+		std::vector< CD3DX12_DESCRIPTOR_RANGE1 > ranges;
+		std::vector< CD3DX12_ROOT_PARAMETER1 > rootParameters;
 
-		CD3DX12_ROOT_PARAMETER1 rootParameters[ 1 ];
-		rootParameters[ 0 ].InitAsDescriptorTable( 1, &ranges[ 0 ], D3D12_SHADER_VISIBILITY_PIXEL );
+		ranges.resize( 2 );
+		rootParameters.resize( 2 );
+
+		// CBV
+		ranges[ 0 ].Init( D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC );
+		rootParameters[ 0 ].InitAsDescriptorTable( 1, &ranges[ 0 ], D3D12_SHADER_VISIBILITY_VERTEX );
+
+		// SRV
+		ranges[ 1 ].Init( D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC );
+		rootParameters[ 1 ].InitAsDescriptorTable( 1, &ranges[ 1 ], D3D12_SHADER_VISIBILITY_PIXEL );
 
 		D3D12_STATIC_SAMPLER_DESC sampler = {};
 		sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
@@ -174,8 +193,14 @@ void HelloWindow::LoadAssets()
 		sampler.RegisterSpace = 0;
 		sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
+		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS       |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS     |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+
 		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-		rootSignatureDesc.Init_1_1( _countof( rootParameters ), rootParameters, 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT );
+		rootSignatureDesc.Init_1_1( rootParameters.size(), rootParameters.data(), 1, &sampler, rootSignatureFlags );
 
 		ComPtr< ID3DBlob > spSignature;
 		ComPtr< ID3DBlob > spError;
@@ -384,13 +409,41 @@ void HelloWindow::LoadAssets()
 		srvDesc.Format = textureDesc.Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MipLevels = 1;
-		m_spDevice->CreateShaderResourceView( m_spTexture.Get(), &srvDesc, m_spSrvHeap->GetCPUDescriptorHandleForHeapStart() );
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle( m_spSrvHeap->GetCPUDescriptorHandleForHeapStart(), 1, m_srvDescriptorSize );
+		m_spDevice->CreateShaderResourceView( m_spTexture.Get(), &srvDesc, srvHandle );
 	}
 
 	// Close the command list and execute it to begin the initial GPU setup.
 	ThrowIfFailed( m_spCommandList->Close() );
 	ID3D12CommandList* ppCommandLists[] = { m_spCommandList.Get() };
 	m_spCommandQueue->ExecuteCommandLists( _countof( ppCommandLists ), ppCommandLists );
+
+	// Create the contant buffer
+	{
+		const UINT constantBufferSize = sizeof( SceneConstantBuffer );
+
+		ThrowIfFailed( m_spDevice->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_UPLOAD ),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer( constantBufferSize ),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS( &m_spConstantBuffer )
+		) );
+
+		// Describe and create a constant buffer view.
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+		cbvDesc.BufferLocation = m_spConstantBuffer->GetGPUVirtualAddress();
+		cbvDesc.SizeInBytes = constantBufferSize;
+		m_spDevice->CreateConstantBufferView( &cbvDesc, m_spSrvHeap->GetCPUDescriptorHandleForHeapStart() );
+
+		// Map and initialize the constant buffer. we don't unmap this untill the app close.
+		// Keeping mapped for the lifetime of the resource is okay.
+		CD3DX12_RANGE readRange( 0, 0 ); // we do not intend to read from this resource on the CPU.
+		ThrowIfFailed( m_spConstantBuffer->Map( 0, &readRange, reinterpret_cast< void** >( &m_pCbvDataBegin ) ) );
+		memcpy( m_pCbvDataBegin, &m_kConstantBuffer, sizeof( m_kConstantBuffer ) );
+	}
 
 	// Create and record the bundle
 	{
@@ -440,7 +493,12 @@ void HelloWindow::PopulateCommandList()
 	ID3D12DescriptorHeap* ppHeaps[] = { m_spSrvHeap.Get() };
 	m_spCommandList->SetDescriptorHeaps( _countof( ppHeaps ), ppHeaps );
 
-	m_spCommandList->SetGraphicsRootDescriptorTable( 0, m_spSrvHeap->GetGPUDescriptorHandleForHeapStart() );
+	for ( size_t uIndex = 0; uIndex < 2; ++uIndex )
+	{
+		CD3DX12_GPU_DESCRIPTOR_HANDLE handle( m_spSrvHeap->GetGPUDescriptorHandleForHeapStart(), uIndex, m_srvDescriptorSize );
+		m_spCommandList->SetGraphicsRootDescriptorTable( uIndex, handle );
+	}
+
 	m_spCommandList->RSSetViewports( 1, &m_viewport );
 	m_spCommandList->RSSetScissorRects( 1, &m_scissorRect );
 
