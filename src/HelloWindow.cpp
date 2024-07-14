@@ -35,6 +35,12 @@ void HelloWindow::OnUpdate( const StepTimer& kTimer )
 // Render the scene.
 void HelloWindow::OnRender()
 {
+	// Don't try to render anything before the first Update.
+	if ( m_kTimer.GetFrameCount() == 0 )
+	{
+		return;
+	}
+
 	// Record all the command we need to render the scene into the command list.
 	PopulateCommandList();
 

@@ -3,7 +3,6 @@
 #include "DXSample.hpp"
 
 HWND Win32App::m_hWnd = nullptr;
-StepTimer Win32App::m_kTimer;
 
 int Win32App::Run( DXSample* pSample, HINSTANCE hInstance, int nCmdShow )
 {
@@ -79,7 +78,7 @@ int Win32App::Run( DXSample* pSample, HINSTANCE hInstance, int nCmdShow )
 		}
 		else
 		{
-			Tick( pSample );
+			pSample->OnTick();
 		}
 	}
 
@@ -128,19 +127,4 @@ LRESULT CALLBACK Win32App::WindowProc( HWND hWnd, UINT message, WPARAM wParam, L
 
 	// Handle any message the switch statement didn't.
 	return DefWindowProc( hWnd, message, wParam, lParam );
-}
-
-void Win32App::Tick( DXSample* pSample )
-{
-	if ( !pSample )
-	{
-		throw std::exception();
-	}
-
-	m_kTimer.Tick( [ & ] () 
-	{
-		pSample->OnUpdate( m_kTimer );
-	} );
-
-	pSample->OnRender();
 }

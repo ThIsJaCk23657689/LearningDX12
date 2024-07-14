@@ -19,6 +19,16 @@ DXSample::~DXSample()
 {
 }
 
+void DXSample::OnTick()
+{
+	m_kTimer.Tick( [ & ]()
+	{
+		OnUpdate( m_kTimer );
+	} );
+
+    OnRender();
+}
+
 _Use_decl_annotations_
 void DXSample::ParseCommandLineArgs( wchar_t* argv[], int argc )
 {

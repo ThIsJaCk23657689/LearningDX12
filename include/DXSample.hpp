@@ -1,6 +1,7 @@
 #pragma once
 #include "DXSampleHelper.hpp"
 #include "Win32App.hpp"
+#include "StepTimer.hpp"
 
 class DXSample
 {
@@ -11,6 +12,7 @@ public:
 	virtual void OnInit() = 0;
 	virtual void OnUpdate( const StepTimer& kTimer ) = 0;
 	virtual void OnRender() = 0;
+	virtual void OnTick();
 	virtual void OnDestroy() = 0;
 
 	// Sample override the event handlers to handle specific messages.
@@ -35,6 +37,9 @@ protected:
 	uint32_t m_width;
 	uint32_t m_height;
 	float m_aspectRatio;
+
+	// Timer
+	StepTimer m_kTimer;
 
 private:
 	// Root assert path.
