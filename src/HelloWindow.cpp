@@ -544,7 +544,7 @@ void HelloWindow::LoadAssets()
 		m_spBundle->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
 		m_spBundle->IASetVertexBuffers( 0, 1, &m_spVertexBufferView );
 		m_spBundle->IASetIndexBuffer( &m_spIndexBufferView );
-		m_spBundle->DrawIndexedInstanced( 6, 1, 0, 0, 0 );
+		m_spBundle->DrawIndexedInstanced( 36, 1, 0, 0, 0 );
 		ThrowIfFailed( m_spBundle->Close() );
 	}
 
