@@ -9,7 +9,7 @@ public:
 	HelloWindow( uint32_t width, uint32_t height, std::wstring title );
 
 	virtual void OnInit();
-	virtual void OnUpdate();
+	virtual void OnUpdate( const StepTimer& kTimer );
 	virtual void OnRender();
 	virtual void OnDestroy();
 

@@ -19,7 +19,7 @@ void HelloWindow::OnInit()
 }
 
 // Update frame-based values.
-void HelloWindow::OnUpdate()
+void HelloWindow::OnUpdate( const StepTimer& kTimer )
 {
 	const float translationSpeed = 0.005f;
 	const float offsetBounds = 1.25f;
