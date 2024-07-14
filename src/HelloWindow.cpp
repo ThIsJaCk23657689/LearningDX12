@@ -1,4 +1,5 @@
 #include "stdafx.hpp"
+#include "Math.hpp"
 #include "HelloWindow.hpp"
 #include "Texture.hpp"
 
@@ -45,7 +46,7 @@ void HelloWindow::OnUpdate( const StepTimer& kTimer )
 	// View Project Matrix
 	{
 		XMMATRIX view = XMMatrixIdentity();
-		XMMATRIX proj = XMMatrixPerspectiveFovLH( 45.0f * ( 3.14f / 180.0f ), m_aspectRatio, 0.1f, 1000.0f );
+		XMMATRIX proj = XMMatrixPerspectiveFovLH( Math::Radians( 45.0 ), m_aspectRatio, 0.1f, 1000.0f );
 
 		XMVECTOR cameraPos = XMVectorSet( 0.0f, 0.0f, -2.0f, 0.0f );
 		XMVECTOR cameraTarget = XMVectorSet( 0.0f, 0.0f, 0.0f, 0.0f );
