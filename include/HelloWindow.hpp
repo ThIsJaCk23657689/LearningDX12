@@ -16,7 +16,9 @@ public:
 private:
 	void LoadPipeline();
 	void LoadAssets();
+	void InitImGui();
 	void PopulateCommandList();
+	void RenderImGui();
 	void WaitForGpu();
 	void MoveToNextFrame();
 
@@ -78,6 +80,9 @@ private:
 	SceneConstantBuffer m_kConstantBuffer;
 	UINT8* m_pCbvDataBegin = nullptr;
 
+	// Scene State
+	bool m_showDemoWindow = true;
+	DirectX::XMFLOAT4 m_clearColor = { 0.45f, 0.55f, 0.60f, 1.0f };
 
 	// Synchronization objects.
 	UINT m_frameIndex;

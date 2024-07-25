@@ -88,8 +88,16 @@ int Win32App::Run( DXSample* pSample, HINSTANCE hInstance, int nCmdShow )
 	return static_cast< char >( msg.wParam );
 }
 
+// Forward declare the message from imgui_impl_win32.cpp
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam );
+
 LRESULT CALLBACK Win32App::WindowProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
+	if ( ImGui_ImplWin32_WndProcHandler( hWnd, message, wParam, lParam ) )
+	{
+		return true;
+	}
+
 	DXSample* pSample = reinterpret_cast< DXSample* >( GetWindowLongPtr( hWnd, GWLP_USERDATA ) );
 
 	switch ( message )

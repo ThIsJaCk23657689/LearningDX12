@@ -17,6 +17,7 @@ void HelloWindow::OnInit()
 {
 	LoadPipeline();
 	LoadAssets();
+	InitImGui();
 }
 
 // Update frame-based values.
@@ -81,6 +82,8 @@ void HelloWindow::OnRender()
 		return;
 	}
 
+	RenderImGui();
+
 	// Record all the command we need to render the scene into the command list.
 	PopulateCommandList();
 
@@ -98,6 +101,11 @@ void HelloWindow::OnDestroy()
 {
 	// Ensure that GPU is no langer refernencing resource that are about to be cleaned up by the destructor.
 	WaitForGpu();
+
+	// Cleanup Imgui
+	ImGui_ImplDX12_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
 
 	CloseHandle( m_hFenceEvent );
 }
@@ -169,7 +177,7 @@ void HelloWindow::LoadPipeline()
 
 		// Describe and create a shader resource view (SRV) heap for the texture.
 		D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-		srvHeapDesc.NumDescriptors = 2;
+		srvHeapDesc.NumDescriptors = 3; // 0: ImGui, 1: Texture, 2: Constant Buffer
 		srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 		ThrowIfFailed( m_spDevice->CreateDescriptorHeap( &srvHeapDesc, IID_PPV_ARGS( &m_spSrvHeap ) ) );
@@ -211,19 +219,17 @@ void HelloWindow::LoadAssets()
 			featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 		}
 
-		std::vector< CD3DX12_DESCRIPTOR_RANGE1 > ranges;
-		std::vector< CD3DX12_ROOT_PARAMETER1 > rootParameters;
 
-		ranges.resize( 2 );
-		rootParameters.resize( 2 );
+		// Create a descriptor range (descriptor table) and a root parameter.
+		std::vector< CD3DX12_DESCRIPTOR_RANGE1 > ranges( 2 );
+		ranges[ 0 ].Init( D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC );	// 建立一個 SRV 從 t0 開始
+		ranges[ 1 ].Init( D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC );  // 建立一個 CBV 從 b0 開始
 
-		// CBV
-		ranges[ 0 ].Init( D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC );
-		rootParameters[ 0 ].InitAsDescriptorTable( 1, &ranges[ 0 ], D3D12_SHADER_VISIBILITY_VERTEX );
 
-		// SRV
-		ranges[ 1 ].Init( D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC );
-		rootParameters[ 1 ].InitAsDescriptorTable( 1, &ranges[ 1 ], D3D12_SHADER_VISIBILITY_PIXEL );
+		std::vector< CD3DX12_ROOT_PARAMETER1 > rootParameters( 2 );
+		rootParameters[ 0 ].InitAsDescriptorTable( 1, &ranges[ 0 ], D3D12_SHADER_VISIBILITY_PIXEL );
+		rootParameters[ 1 ].InitAsDescriptorTable( 1, &ranges[ 1 ], D3D12_SHADER_VISIBILITY_VERTEX );
+
 
 		D3D12_STATIC_SAMPLER_DESC sampler = {};
 		sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
@@ -529,7 +535,9 @@ void HelloWindow::LoadAssets()
 		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
 		cbvDesc.BufferLocation = m_spConstantBuffer->GetGPUVirtualAddress();
 		cbvDesc.SizeInBytes = constantBufferSize;
-		m_spDevice->CreateConstantBufferView( &cbvDesc, m_spSrvHeap->GetCPUDescriptorHandleForHeapStart() );
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle( m_spSrvHeap->GetCPUDescriptorHandleForHeapStart(), 2, m_srvDescriptorSize );
+		m_spDevice->CreateConstantBufferView( &cbvDesc, srvHandle );
 
 		// Map and initialize the constant buffer. we don't unmap this untill the app close.
 		// Keeping mapped for the lifetime of the resource is okay.
@@ -568,6 +576,31 @@ void HelloWindow::LoadAssets()
 	}
 }
 
+void HelloWindow::InitImGui()
+{
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); ( void )io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;        // Enable Gamepad Controls
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+
+	// 嘗試抓取 ImGui 的 Font Texture 在 Descriptor Heap 中的位置
+	CD3DX12_CPU_DESCRIPTOR_HANDLE srvCpuHandle( m_spSrvHeap->GetCPUDescriptorHandleForHeapStart(), 0, m_srvDescriptorSize );
+	CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle( m_spSrvHeap->GetGPUDescriptorHandleForHeapStart(), 0, m_srvDescriptorSize );
+
+	// Setup Platform/Renderer bindings
+	ImGui_ImplWin32_Init( Win32App::GetHwnd() );
+	ImGui_ImplDX12_Init( m_spDevice.Get(), FrameCount, 
+						 DXGI_FORMAT_R8G8B8A8_UNORM, 
+						 m_spSrvHeap.Get(), 
+						 srvCpuHandle,
+						 srvGpuHandle );
+}
+
 void HelloWindow::PopulateCommandList()
 {
 	// Command list allocators can only be reset when the associated
@@ -579,18 +612,18 @@ void HelloWindow::PopulateCommandList()
 	// that command list can be reset at any time and must be before re-recording
 	ThrowIfFailed( m_spCommandList->Reset( m_spCommandAllocator[ m_frameIndex ].Get(), m_spPipelineState.Get() ) );
 
-	// Set necessary state.
-	m_spCommandList->SetGraphicsRootSignature( m_spRootSignature.Get() );
-
 	// Every command list only allow sets descriptor deap one time. 
 	ID3D12DescriptorHeap* ppHeaps[] = { m_spSrvHeap.Get() };
 	m_spCommandList->SetDescriptorHeaps( _countof( ppHeaps ), ppHeaps );
 
-	for ( size_t uIndex = 0; uIndex < 2; ++uIndex )
-	{
-		CD3DX12_GPU_DESCRIPTOR_HANDLE handle( m_spSrvHeap->GetGPUDescriptorHandleForHeapStart(), uIndex, m_srvDescriptorSize );
-		m_spCommandList->SetGraphicsRootDescriptorTable( uIndex, handle );
-	}
+	// Set necessary state.
+	m_spCommandList->SetGraphicsRootSignature( m_spRootSignature.Get() );
+
+	// 從 Descriptor Heap 中取得 index 為 1 的 Gpu Handle => 這是設計用來給我們方塊貼上 Texture
+	CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle( m_spSrvHeap->GetGPUDescriptorHandleForHeapStart(), 1, m_srvDescriptorSize );
+	CD3DX12_GPU_DESCRIPTOR_HANDLE constantHandle( m_spSrvHeap->GetGPUDescriptorHandleForHeapStart(), 2, m_srvDescriptorSize );
+	m_spCommandList->SetGraphicsRootDescriptorTable( 0, textureHandle ); // 當時我們已經定義好說 Root Signature 的第 0 個參數是一個 Descriptor Table （SRV）
+	m_spCommandList->SetGraphicsRootDescriptorTable( 1, constantHandle );
 
 	m_spCommandList->RSSetViewports( 1, &m_viewport );
 	m_spCommandList->RSSetScissorRects( 1, &m_scissorRect );
@@ -601,16 +634,43 @@ void HelloWindow::PopulateCommandList()
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle( m_spRtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize );
 	m_spCommandList->OMSetRenderTargets( 1, &rtvHandle, FALSE, nullptr );
 
-	// Record command.
-	const float clearColor[] = { 0.278f, 0.278f, 0.314f, 1.0f };
+	const float clearColor[ 4 ] = { m_clearColor.x * m_clearColor.w, m_clearColor.y * m_clearColor.w, m_clearColor.z * m_clearColor.w, m_clearColor.w };
 	m_spCommandList->ClearRenderTargetView( rtvHandle, clearColor, 0, nullptr );
 
+	// Draw the scene
 	m_spCommandList->ExecuteBundle( m_spBundle.Get() );
+
+	// Render ImGui
+	ImGui_ImplDX12_RenderDrawData( ImGui::GetDrawData(), m_spCommandList.Get() );
 
 	// Indicate that the back buffer will now be used to present.
 	m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_renderTargets[ m_frameIndex ].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT ) );
 
 	ThrowIfFailed( m_spCommandList->Close() );
+}
+
+void HelloWindow::RenderImGui()
+{
+	// Start the Dear imgui frame
+	ImGui_ImplDX12_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+
+	if ( m_showDemoWindow )
+	{
+		ImGui::ShowDemoWindow( &m_showDemoWindow );
+	}
+
+	{
+		ImGuiIO& io = ImGui::GetIO(); ( void ) io;
+		ImGui::Begin( "Hello, World" );
+		ImGui::Checkbox( "Demo Window", &m_showDemoWindow );
+		ImGui::ColorEdit3( "clear color", ( float* ) &m_clearColor );
+		ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate );
+		ImGui::End();
+	}
+
+	ImGui::Render();
 }
 
 // Wait for pending GPU work to complete.

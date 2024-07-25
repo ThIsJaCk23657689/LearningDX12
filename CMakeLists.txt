@@ -52,6 +52,7 @@ add_subdirectory(${DIRECTX_MATH_DIR} "${CMAKE_BINARY_DIR}/DirectXMath")
 # 將來源新增到此專案的可執行檔
 file(GLOB MY_SOURCE CONFIGURE_DEPENDS
     "src/*.cpp"
+    "thirds/imgui/*.cpp"
 )
 target_sources(${MY_EXECUTABLE} PRIVATE ${MY_SOURCE})
 
@@ -60,6 +61,7 @@ target_include_directories(${MY_EXECUTABLE} PRIVATE
     "thirds/DirectX-Headers/include/directx"
     "${DIRECTX_MATH_DIR}/Inc"
     "thirds/stb"
+    "thirds/imgui"
 )
 target_link_libraries(${MY_EXECUTABLE} PRIVATE DirectX-Headers DirectX-Guids d3d12 dxgi d3dcompiler)
 
