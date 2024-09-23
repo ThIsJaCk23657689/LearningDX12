@@ -7,8 +7,6 @@
 HelloWindow::HelloWindow( uint32_t width, uint32_t height, std::wstring title ) :
 	DXSample( width, height, title ),
 	m_frameIndex( 0 ),
-	m_viewport( 0.0f, 0.0f, static_cast< float >( width ), static_cast< float >( height ) ),
-	m_scissorRect( 0, 0, static_cast< LONG >( width ), static_cast< LONG >( height ) ),
 	m_rtvDescriptorSize( 0 ),
 	m_srvDescriptorSize( 0 )
 {
@@ -349,7 +347,35 @@ void HelloWindow::CreateResources()
 	// Reset the frame index to the current back buffer.
 	m_frameIndex = m_spSwapChain->GetCurrentBackBufferIndex();
 
-	// TODO: Depth Stencil
+	// allocate a 2-D surface as the depth / stencil buffer and create a dpeth / stencil view on this surface
+	const CD3DX12_HEAP_PROPERTIES depthHeapProperties( D3D12_HEAP_TYPE_DEFAULT );
+	D3D12_RESOURCE_DESC drvDesc = CD3DX12_RESOURCE_DESC::Tex2D( 
+		depthBufferFormat, 
+		backBufferWidth, 
+		backBufferHeight, 
+		1, // This depth stencil view has only one texture.
+		1  // Use a single mipmap level.
+	);
+	drvDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	const CD3DX12_CLEAR_VALUE depthOptimizedClearValue( depthBufferFormat, 1.0f, 0u );
+	ThrowIfFailed( m_spDevice->CreateCommittedResource( 
+		&depthHeapProperties, 
+		D3D12_HEAP_FLAG_NONE, 
+		&drvDesc, 
+		D3D12_RESOURCE_STATE_DEPTH_WRITE, 
+		&depthOptimizedClearValue, 
+		IID_PPV_ARGS( m_spDepthStencil.ReleaseAndGetAddressOf() ) ) );
+	m_spDepthStencil->SetName( L"Depth Stencil" );
+
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+	dsvDesc.Format = depthBufferFormat;
+	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+
+	auto dsvHandle = m_spDsvHeap->GetCPUDescriptorHandleForHeapStart();
+	m_spDevice->CreateDepthStencilView( m_spDepthStencil.Get(), &dsvDesc, dsvHandle );
+
+	// TODO: Initialize window size-dependent objects here.
 }
 
 void HelloWindow::OnDeviceLost()
@@ -361,7 +387,7 @@ void HelloWindow::OnDeviceLost()
 	}
 	m_spBundleAllocator.Reset();
 
-	// depth stencil
+	m_spDepthStencil.Reset();
 	m_spFence.Reset();
 	m_spBundle.Reset();
 	m_spCommandList.Reset();
@@ -788,17 +814,22 @@ void HelloWindow::PopulateCommandList()
 	m_spCommandList->SetGraphicsRootDescriptorTable( 0, textureHandle ); // 當時我們已經定義好說 Root Signature 的第 0 個參數是一個 Descriptor Table （SRV）
 	m_spCommandList->SetGraphicsRootDescriptorTable( 1, constantHandle );
 
-	m_spCommandList->RSSetViewports( 1, &m_viewport );
-	m_spCommandList->RSSetScissorRects( 1, &m_scissorRect );
-
 	// Indicate that the back buffer will be used as a render target.
 	m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_renderTargets[ m_frameIndex ].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET ) );
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle( m_spRtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize );
-	m_spCommandList->OMSetRenderTargets( 1, &rtvHandle, FALSE, nullptr );
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle( m_spDsvHeap->GetCPUDescriptorHandleForHeapStart() );
+	m_spCommandList->OMSetRenderTargets( 1, &rtvHandle, FALSE, &dsvHandle );
 
 	const float clearColor[ 4 ] = { m_clearColor.x * m_clearColor.w, m_clearColor.y * m_clearColor.w, m_clearColor.z * m_clearColor.w, m_clearColor.w };
 	m_spCommandList->ClearRenderTargetView( rtvHandle, clearColor, 0, nullptr );
+	m_spCommandList->ClearDepthStencilView( dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr );
+
+	// Set the viewport and scissor rect.
+	const CD3DX12_VIEWPORT viewport( 0.0f, 0.0f, static_cast< float >( m_width ), static_cast< float >( m_height ), D3D12_MIN_DEPTH, D3D12_MAX_DEPTH );
+	const CD3DX12_RECT scissorRect( 0, 0, static_cast< LONG >( m_width ), static_cast< LONG >( m_height ) );
+	m_spCommandList->RSSetViewports( 1, &viewport );
+	m_spCommandList->RSSetScissorRects( 1, &scissorRect );
 
 	// Draw the scene
 	m_spCommandList->ExecuteBundle( m_spBundle.Get() );

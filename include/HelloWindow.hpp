@@ -54,8 +54,6 @@ private:
 	static_assert( ( sizeof( SceneConstantBuffer ) % 256 ) == 0, "Constant Buffer size must be 256-byte aligned" );
 
 	// Pipeline objects;
-	CD3DX12_VIEWPORT m_viewport;
-	CD3DX12_RECT m_scissorRect;
 	ComPtr< ID3D12Device > m_spDevice;
 	ComPtr< IDXGIFactory4 > m_spDxgiFactory;
 	ComPtr< ID3D12CommandQueue > m_spCommandQueue;
@@ -74,7 +72,7 @@ private:
 	// Backbuffer / Renderiing resources
 	ComPtr< IDXGISwapChain3 > m_spSwapChain;
 	ComPtr< ID3D12Resource > m_renderTargets[ FrameCount ];
-	ComPtr< ID3D12Resource > m_depthStencil;
+	ComPtr< ID3D12Resource > m_spDepthStencil;
 
 	// App resources.
 	ComPtr< ID3D12Resource > m_spVertexBuffer;
