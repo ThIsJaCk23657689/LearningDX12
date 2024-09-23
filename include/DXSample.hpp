@@ -39,7 +39,7 @@ protected:
 	std::wstring GetAssetFullPath( LPCWSTR assertName );
 
 	void SetWidthAndHeight( uint32_t width, uint32_t height );
-	void GetHardwareAdapter( _In_ IDXGIFactory1* pFactory, 
+	void GetHardwareAdapter( _In_ IDXGIFactory4* pFactory, 
 							 _Outptr_result_maybenull_ IDXGIAdapter1** ppAdapter, 
 							 bool requestHightPerformanceAdapter = false );
 
