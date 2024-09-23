@@ -64,6 +64,14 @@ target_include_directories(${MY_EXECUTABLE} PRIVATE
     "thirds/imgui"
 )
 target_link_libraries(${MY_EXECUTABLE} PRIVATE DirectX-Headers DirectX-Guids d3d12 dxgi d3dcompiler)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "Building in Debug mode")
+    target_link_libraries(${MY_EXECUTABLE} PRIVATE dxguid)
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(STATUS "Building in Release mode")
+else()
+    message(STATUS "Unknown build type")
+endif()
 
 # 建立 Symlink 到 assets 資料夾
 add_custom_command(TARGET ${MY_EXECUTABLE} POST_BUILD

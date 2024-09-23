@@ -128,9 +128,9 @@ void HelloWindow::OnSizeChanged( uint32_t width, uint32_t height )
 void HelloWindow::CreateDevice()
 {
 	UINT dxgiFactoryFlags = 0;
-
 #ifdef _DEBUG
 	// Enable the debug layer (requires the Graphics Tools "optional feature").
+	// NOTE: Enabling the debug layer after device creation will invalidate the active device.
 	{
 		ComPtr< ID3D12Debug > spDebugController;
 		if ( SUCCEEDED( D3D12GetDebugInterface( IID_PPV_ARGS( &spDebugController ) ) ) )
@@ -138,12 +138,18 @@ void HelloWindow::CreateDevice()
 			spDebugController->EnableDebugLayer();
 
 			// enable additional debug layers.
-			dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+			ComPtr< IDXGIInfoQueue > spDxgiInfoQueue;
+			if ( SUCCEEDED( DXGIGetDebugInterface1( 0, IID_PPV_ARGS( &spDxgiInfoQueue ) ) ) )
+			{
+				dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+
+				spDxgiInfoQueue->SetBreakOnSeverity( DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_ERROR, true );
+				spDxgiInfoQueue->SetBreakOnSeverity( DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_CORRUPTION, true );
+			}
 		}
 	}
 #endif
-
-	ThrowIfFailed( CreateDXGIFactory2( dxgiFactoryFlags, IID_PPV_ARGS( &m_spDxgiFactory ) ) );
+	ThrowIfFailed( CreateDXGIFactory2( dxgiFactoryFlags, IID_PPV_ARGS( m_spDxgiFactory.ReleaseAndGetAddressOf() ) ) );
 
 	// get adpater
 	ComPtr< IDXGIAdapter1 > spHardwareAdapter;
