@@ -1,4 +1,5 @@
 #include "stdafx.hpp"
+#include <system_error>
 #include "Math.hpp"
 #include "HelloWindow.hpp"
 #include "Texture.hpp"
@@ -110,7 +111,7 @@ void HelloWindow::OnDestroy()
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 
-	CloseHandle( m_hFenceEvent );
+	m_fenceEvent.Close();
 }
 
 void HelloWindow::OnSizeChanged( uint32_t width, uint32_t height )
@@ -241,10 +242,10 @@ void HelloWindow::CreateDevice()
 		m_fenceValue[ m_frameIndex ]++;
 
 		// Create an event handle to use for frame synchronization
-		m_hFenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
-		if ( !m_hFenceEvent )
+		m_fenceEvent.Attach( CreateEventEx( nullptr, nullptr, 0, EVENT_MODIFY_STATE | SYNCHRONIZE ) );
+		if ( !m_fenceEvent.IsValid() )
 		{
-			ThrowIfFailed( HRESULT_FROM_WIN32( GetLastError() ) );
+			throw std::system_error( std::error_code( static_cast< int >( GetLastError() ), std::system_category() ), "CreateEventEx" );
 		}
 
 		// Check Shader Model 6 support
@@ -838,7 +839,7 @@ void HelloWindow::RenderImGui()
 // Wait for pending GPU work to complete.
 void HelloWindow::WaitForGpu()
 {
-	if ( !m_spCommandQueue || !m_spFence )
+	if ( !m_spCommandQueue || !m_spFence || !m_fenceEvent.IsValid() )
 	{
 		return;
 	}
@@ -847,8 +848,8 @@ void HelloWindow::WaitForGpu()
 	ThrowIfFailed( m_spCommandQueue->Signal( m_spFence.Get(), m_fenceValue[ m_frameIndex ] ) );
 
 	// Wait untill the fence has been processed.
-	ThrowIfFailed( m_spFence->SetEventOnCompletion( m_fenceValue[ m_frameIndex ], m_hFenceEvent ) );
-	WaitForSingleObjectEx( m_hFenceEvent, INFINITE, FALSE );
+	ThrowIfFailed( m_spFence->SetEventOnCompletion( m_fenceValue[ m_frameIndex ], m_fenceEvent.Get() ) );
+	std::ignore = WaitForSingleObjectEx( m_fenceEvent.Get(), INFINITE, FALSE );
 
 	// Increment the fence value for the current frame.
 	m_fenceValue[ m_frameIndex ]++;
@@ -867,8 +868,8 @@ void HelloWindow::MoveToNextFrame()
 	// If the next frame is not ready to be rendered yet, wait until it is ready.
 	if ( m_spFence->GetCompletedValue() < m_fenceValue[ m_frameIndex ] )
 	{
-		ThrowIfFailed( m_spFence->SetEventOnCompletion( m_fenceValue[ m_frameIndex ], m_hFenceEvent ) );
-		WaitForSingleObjectEx( m_hFenceEvent, INFINITE, FALSE );
+		ThrowIfFailed( m_spFence->SetEventOnCompletion( m_fenceValue[ m_frameIndex ], m_fenceEvent.Get() ) );
+		std::ignore = WaitForSingleObjectEx( m_fenceEvent.Get(), INFINITE, FALSE );
 	}
 
 	// Set the fence value for the next frame.

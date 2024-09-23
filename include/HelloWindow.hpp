@@ -2,6 +2,7 @@
 #include "DXSample.hpp"
 
 using Microsoft::WRL::ComPtr;
+using Microsoft::WRL::Wrappers::Event;
 
 class HelloWindow : public DXSample
 {
@@ -97,7 +98,7 @@ private:
 
 	// Synchronization objects.
 	UINT m_frameIndex;
-	HANDLE m_hFenceEvent;
+	Event m_fenceEvent;
 	ComPtr < ID3D12Fence > m_spFence;
 	UINT64 m_fenceValue[ FrameCount ] = { 0, 0 };
 
