@@ -59,6 +59,7 @@ private:
 	ComPtr< IDXGIFactory4 > m_spDxgiFactory;
 	ComPtr< ID3D12CommandQueue > m_spCommandQueue;
 	ComPtr< ID3D12DescriptorHeap > m_spRtvHeap;
+	ComPtr< ID3D12DescriptorHeap > m_spDsvHeap;
 	ComPtr< ID3D12DescriptorHeap > m_spSrvHeap;
 	ComPtr< ID3D12CommandAllocator > m_spCommandAllocator[ FrameCount ];
 	ComPtr< ID3D12CommandAllocator > m_spBundleAllocator;

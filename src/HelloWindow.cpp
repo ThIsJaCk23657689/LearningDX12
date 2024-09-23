@@ -156,29 +156,60 @@ void HelloWindow::CreateDevice()
 	GetHardwareAdapter( m_spDxgiFactory.Get(), &spHardwareAdapter );
 	
 	// create DX12 device
-	ThrowIfFailed( D3D12CreateDevice( spHardwareAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS( &m_spDevice ) ) );
+	ThrowIfFailed( D3D12CreateDevice( spHardwareAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS( m_spDevice.ReleaseAndGetAddressOf() ) ) );
 	
+#ifndef NDEBUG
+	// Configure debug device (if active).
+	ComPtr< ID3D12InfoQueue > spD3dInfoQueue;
+	if ( SUCCEEDED( m_spDevice.As( &spD3dInfoQueue ) ) )
+	{
+#ifdef _DEBUG
+		spD3dInfoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_ERROR, true );
+		spD3dInfoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_CORRUPTION, true );
+#endif
+		D3D12_MESSAGE_ID hide[] =
+		{
+			D3D12_MESSAGE_ID_MAP_INVALID_NULLRANGE,
+			D3D12_MESSAGE_ID_UNMAP_INVALID_NULLRANGE,
+			// workaround for debug layer issues on hybrid-graphics systems
+			D3D12_MESSAGE_ID_EXECUTECOMMANDLISTS_WRONGSWAPCHAINBUFFERREFERENCE,
+			D3D12_MESSAGE_ID_RESOURCE_BARRIER_MISMATCHING_COMMAND_LIST_TYPE,
+		};
+		D3D12_INFO_QUEUE_FILTER filter = {};
+		filter.DenyList.NumIDs = static_cast< UINT >( std::size( hide ) );
+		filter.DenyList.pIDList = hide;
+		spD3dInfoQueue->AddStorageFilterEntries( &filter );
+	}
+#endif
+
 	// create command queue
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-	ThrowIfFailed( m_spDevice->CreateCommandQueue( &queueDesc, IID_PPV_ARGS( &m_spCommandQueue ) ) );
+	ThrowIfFailed( m_spDevice->CreateCommandQueue( &queueDesc, IID_PPV_ARGS( m_spCommandQueue.ReleaseAndGetAddressOf() ) ) );
 
 	// create descriptor heaps
 	{
-		// describe and create a render target view descriptor heap
+		// create descriptor heap for render target views
 		D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
 		rtvHeapDesc.NumDescriptors = FrameCount;
 		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		ThrowIfFailed( m_spDevice->CreateDescriptorHeap( &rtvHeapDesc, IID_PPV_ARGS( &m_spRtvHeap ) ) );
+		ThrowIfFailed( m_spDevice->CreateDescriptorHeap( &rtvHeapDesc, IID_PPV_ARGS( m_spRtvHeap.ReleaseAndGetAddressOf() ) ) );
+
+		// create descriptor heap for depth stencil view
+		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
+		dsvHeapDesc.NumDescriptors = 1;
+		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+		ThrowIfFailed( m_spDevice->CreateDescriptorHeap( &dsvHeapDesc, IID_PPV_ARGS( m_spDsvHeap.ReleaseAndGetAddressOf() ) ) );
 
 		// Describe and create a shader resource view (SRV) heap for the texture
 		D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
 		srvHeapDesc.NumDescriptors = 3; // 0: ImGui, 1: Texture, 2: Constant Buffer
 		srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		ThrowIfFailed( m_spDevice->CreateDescriptorHeap( &srvHeapDesc, IID_PPV_ARGS( &m_spSrvHeap ) ) );
+		ThrowIfFailed( m_spDevice->CreateDescriptorHeap( &srvHeapDesc, IID_PPV_ARGS( m_spSrvHeap.ReleaseAndGetAddressOf() ) ) );
 
 		m_rtvDescriptorSize = m_spDevice->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
 		m_srvDescriptorSize = m_spDevice->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
@@ -188,21 +219,25 @@ void HelloWindow::CreateDevice()
 	{
 		for ( UINT n = 0; n < FrameCount; ++n )
 		{
-			ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_spCommandAllocator[ n ] ) ) );
+			ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( m_spCommandAllocator[ n ].ReleaseAndGetAddressOf() ) ) );
 		}
 	}
 	// create a command allocator for bundle usage
-	ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS( &m_spBundleAllocator ) ) );
+	ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS( m_spBundleAllocator.ReleaseAndGetAddressOf() ) ) );
 
 	// create a command list for recording graphics commands.
 	m_frameIndex = 0;
-	ThrowIfFailed( m_spDevice->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_spCommandAllocator[ m_frameIndex ].Get(), nullptr, IID_PPV_ARGS( &m_spCommandList ) ) );
+	ThrowIfFailed( m_spDevice->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_spCommandAllocator[ m_frameIndex ].Get(), nullptr, IID_PPV_ARGS( m_spCommandList.ReleaseAndGetAddressOf() ) ) );
 	ThrowIfFailed( m_spCommandList->Close() );
+
+	// create a command list for bundle usage
+	ThrowIfFailed( m_spDevice->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_spBundleAllocator.Get(), nullptr, IID_PPV_ARGS( m_spBundle.ReleaseAndGetAddressOf() ) ) );
+	ThrowIfFailed( m_spBundle->Close() );
 
 	// create a fence for tracking GPU execution progress => 
 	// fence wait until assets have been uploaded to the GPU.
 	{
-		ThrowIfFailed( m_spDevice->CreateFence( m_fenceValue[ m_frameIndex ], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_spFence ) ) );
+		ThrowIfFailed( m_spDevice->CreateFence( m_fenceValue[ m_frameIndex ], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( m_spFence.ReleaseAndGetAddressOf() ) ) );
 		m_fenceValue[ m_frameIndex ]++;
 
 		// Create an event handle to use for frame synchronization
@@ -331,6 +366,7 @@ void HelloWindow::OnDeviceLost()
 	m_spCommandList.Reset();
 	m_spSwapChain.Reset();
 	m_spRtvHeap.Reset();
+	m_spDsvHeap.Reset();
 	m_spSrvHeap.Reset();
 	m_spCommandQueue.Reset();
 	m_spDxgiFactory.Reset();
@@ -689,7 +725,8 @@ void HelloWindow::LoadAssets()
 
 	// Create and record the bundle
 	{
-		ThrowIfFailed( m_spDevice->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_spBundleAllocator.Get(), m_spPipelineState.Get(), IID_PPV_ARGS( &m_spBundle ) ) );
+		ThrowIfFailed( m_spBundleAllocator->Reset() );
+		ThrowIfFailed( m_spBundle->Reset( m_spBundleAllocator.Get(), m_spPipelineState.Get() ) );
 		m_spBundle->SetGraphicsRootSignature( m_spRootSignature.Get() );
 		m_spBundle->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
 		m_spBundle->IASetVertexBuffers( 0, 1, &m_spVertexBufferView );

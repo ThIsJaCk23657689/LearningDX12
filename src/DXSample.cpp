@@ -108,6 +108,7 @@ void DXSample::GetHardwareAdapter( IDXGIFactory4* pFactory,
         }
     }
 
+#ifndef NDEBUG
     if ( !spAdapter.Get() )
     {
         // try WARP12
@@ -116,6 +117,7 @@ void DXSample::GetHardwareAdapter( IDXGIFactory4* pFactory,
 			throw std::exception( "WARP12 not available. Enable the 'Graphics Tools' feature." );
 		}
     }
+#endif
 
     if ( !spAdapter.Get() )
     {
