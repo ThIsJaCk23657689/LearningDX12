@@ -2,7 +2,12 @@
 #include "Win32App.hpp"
 #include "DXSample.hpp"
 
+#define MIN_WIDTH 400
+#define MIN_HEIGHT 300
+
 HWND Win32App::m_hWnd = nullptr;
+std::pair< uint32_t, uint32_t > Win32App::m_windowSize = { MIN_WIDTH, MIN_HEIGHT };
+std::pair< int32_t, int32_t > Win32App::m_windowPos = { CW_USEDEFAULT, CW_USEDEFAULT };
 
 int Win32App::Run( DXSample* pSample, HINSTANCE hInstance, int nCmdShow )
 {
@@ -69,6 +74,10 @@ int Win32App::Run( DXSample* pSample, HINSTANCE hInstance, int nCmdShow )
 	auto renderWidth = static_cast< uint32_t >( windowRect.right - windowRect.left );
 	auto renderHeight = static_cast< uint32_t >( windowRect.bottom - windowRect.top );
 	pSample->OnInit( renderWidth, renderHeight );
+	
+	// store the window size and position.
+	m_windowSize = { renderWidth, renderHeight };
+	m_windowPos = { posX, posY };
 
 	// main sample loop
 	MSG msg = {};
@@ -159,7 +168,9 @@ LRESULT CALLBACK Win32App::WindowProc( HWND hWnd, UINT message, WPARAM wParam, L
 			}
 			else if ( !g_bInSizeMove && pSample )
 			{
-				pSample->OnSizeChanged( static_cast< uint32_t >( LOWORD( lParam ) ), static_cast< uint32_t >( HIWORD( lParam ) ) );
+				auto width = static_cast< uint32_t >( LOWORD( lParam ) );
+				auto height = static_cast< uint32_t >( HIWORD( lParam ) );
+				pSample->OnSizeChanged( width, height );
 			}
 			return 0;
 		}
@@ -175,10 +186,20 @@ LRESULT CALLBACK Win32App::WindowProc( HWND hWnd, UINT message, WPARAM wParam, L
 			g_bInSizeMove = false;
 			if ( pSample )
 			{
-				RECT rc;
-				GetClientRect( hWnd, &rc );
+				RECT clienRect;
+				GetClientRect( hWnd, &clienRect );
 
-				pSample->OnSizeChanged( static_cast< uint32_t >( rc.right - rc.left ), static_cast< uint32_t >( rc.bottom - rc.top ) );
+				RECT windowRect;
+				GetWindowRect( hWnd, &windowRect );
+
+				auto width = static_cast< uint32_t >( clienRect.right - clienRect.left );
+				auto height = static_cast< uint32_t >( clienRect.bottom - clienRect.top );
+				auto posX = static_cast< int32_t >( windowRect.left );
+				auto posY = static_cast< int32_t >( windowRect.top );
+				m_windowSize = { width, height };
+				m_windowPos = { posX, posY };
+
+				pSample->OnSizeChanged( width, height );
 			}
 			return 0;
 		}
@@ -187,8 +208,8 @@ LRESULT CALLBACK Win32App::WindowProc( HWND hWnd, UINT message, WPARAM wParam, L
 		{
 			// set minimum window size
 			auto pMinMaxInfo = reinterpret_cast< MINMAXINFO* >( lParam );
-			pMinMaxInfo->ptMinTrackSize.x = 400;
-			pMinMaxInfo->ptMinTrackSize.y = 300;
+			pMinMaxInfo->ptMinTrackSize.x = MIN_WIDTH;
+			pMinMaxInfo->ptMinTrackSize.y = MIN_HEIGHT;
 			return 0;
 		}
 
@@ -268,19 +289,28 @@ LRESULT CALLBACK Win32App::WindowProc( HWND hWnd, UINT message, WPARAM wParam, L
 					SetWindowLongPtr( hWnd, GWL_STYLE, WS_OVERLAPPEDWINDOW );
 					SetWindowLongPtr( hWnd, GWL_EXSTYLE, 0 );
 
-					int width = 1280;
-					int height = 720;
-					if ( pSample )
-					{
-						width = pSample->GetWidth();
-						height = pSample->GetHeight();
-					}
-
+					auto width	= static_cast< int >( m_windowSize.first );
+					auto height	= static_cast< int >( m_windowSize.second );
+					auto posX	= static_cast< int >( m_windowPos.first );
+					auto posY	= static_cast< int >( m_windowPos.second );
+					SetWindowPos( hWnd, HWND_TOP, posX, posY, width, height, SWP_NOZORDER | SWP_FRAMECHANGED );
 					ShowWindow( hWnd, SW_SHOWNORMAL );
-					SetWindowPos( hWnd, HWND_TOP, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED );
 				}
 				else
 				{
+					RECT clienRect;
+					GetClientRect( hWnd, &clienRect );
+
+					RECT windowRect;
+					GetWindowRect( hWnd, &windowRect );
+
+					auto width = static_cast< uint32_t >( clienRect.right - clienRect.left );
+					auto height = static_cast< uint32_t >( clienRect.bottom - clienRect.top );
+					auto posX = static_cast< int32_t >( windowRect.left );
+					auto posY = static_cast< int32_t >( windowRect.top );
+					m_windowSize = { width, height };
+					m_windowPos = { posX, posY };
+
 					SetWindowLongPtr( hWnd, GWL_STYLE, WS_POPUP );
 					SetWindowLongPtr( hWnd, GWL_EXSTYLE, WS_EX_TOPMOST );
 

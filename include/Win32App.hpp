@@ -14,5 +14,7 @@ protected:
 
 private:
 	static HWND m_hWnd;
+	static std::pair< uint32_t, uint32_t > m_windowSize;
+	static std::pair< int32_t, int32_t > m_windowPos;
 
 };
