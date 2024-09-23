@@ -4,7 +4,8 @@
 using Microsoft::WRL::ComPtr;
 
 DXSample::DXSample( uint32_t width, uint32_t height, std::wstring title ) :
-    m_title( title )
+    m_title( title ),
+    m_bIsInitialized( false )
 {
     SetWidthAndHeight( width, height );
 
@@ -19,6 +20,11 @@ DXSample::~DXSample()
 
 void DXSample::OnTick()
 {
+    if ( !m_bIsInitialized )
+	{
+        return;
+	}
+
 	m_kTimer.Tick( [ & ]()
 	{
 		OnUpdate( m_kTimer );

@@ -20,6 +20,8 @@ void HelloWindow::OnInit( uint32_t width, uint32_t height )
 	LoadPipeline();
 	LoadAssets();
 	InitImGui();
+
+	m_bIsInitialized = true;
 }
 
 // Update frame-based values.
@@ -114,9 +116,15 @@ void HelloWindow::OnDestroy()
 
 void HelloWindow::OnSizeChanged( uint32_t width, uint32_t height )
 {
-	if ( !m_spDevice )
+	if ( !m_spDevice || !m_bIsInitialized )
 	{
 		// if device is not created, means no resources need to be recreated.
+		return;
+	}
+
+	if ( m_width == width && m_height == height )
+	{
+		// if the size is not changed, no need to recreate resources.
 		return;
 	}
 

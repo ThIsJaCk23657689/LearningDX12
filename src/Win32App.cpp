@@ -91,6 +91,7 @@ int Win32App::Run( DXSample* pSample, HINSTANCE hInstance, int nCmdShow )
 		}
 		else
 		{
+			// just in case if WM_PAINT is not received.
 			pSample->OnTick();
 		}
 	}
@@ -130,7 +131,7 @@ LRESULT CALLBACK Win32App::WindowProc( HWND hWnd, UINT message, WPARAM wParam, L
 
 		case WM_PAINT:
 		{
-			if ( g_bInSizeMove && pSample )
+			if ( pSample )
 			{
 				pSample->OnTick();
 			}

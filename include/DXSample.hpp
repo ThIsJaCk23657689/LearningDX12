@@ -48,6 +48,8 @@ protected:
 	uint32_t m_height;
 	float m_aspectRatio;
 
+	bool m_bIsInitialized;
+
 	// Timer
 	StepTimer m_kTimer;
 
