@@ -8,12 +8,18 @@ class HelloWindow : public DXSample
 public:
 	HelloWindow( uint32_t width, uint32_t height, std::wstring title );
 
-	virtual void OnInit();
+	virtual void OnInit( uint32_t width, uint32_t height );
 	virtual void OnUpdate( const StepTimer& kTimer );
 	virtual void OnRender();
 	virtual void OnDestroy();
 
+	virtual void OnSizeChanged( uint32_t width, uint32_t height );
+
 private:
+	virtual void CreateDevice();
+	virtual void CreateResources();
+	virtual void OnDeviceLost();
+
 	void LoadPipeline();
 	void LoadAssets();
 	void InitImGui();
@@ -49,12 +55,11 @@ private:
 	// Pipeline objects;
 	CD3DX12_VIEWPORT m_viewport;
 	CD3DX12_RECT m_scissorRect;
-	ComPtr< IDXGISwapChain3 > m_spSwapChain;
 	ComPtr< ID3D12Device > m_spDevice;
+	ComPtr< IDXGIFactory4 > m_spDxgiFactory;
 	ComPtr< ID3D12CommandQueue > m_spCommandQueue;
 	ComPtr< ID3D12DescriptorHeap > m_spRtvHeap;
 	ComPtr< ID3D12DescriptorHeap > m_spSrvHeap;
-	ComPtr< ID3D12Resource > m_renderTargets[ FrameCount ];
 	ComPtr< ID3D12CommandAllocator > m_spCommandAllocator[ FrameCount ];
 	ComPtr< ID3D12CommandAllocator > m_spBundleAllocator;
 	ComPtr< ID3D12GraphicsCommandList > m_spCommandList;
@@ -63,6 +68,11 @@ private:
 	ComPtr< ID3D12RootSignature > m_spRootSignature;
 	UINT m_rtvDescriptorSize;
 	UINT m_srvDescriptorSize;
+
+	// Backbuffer / Renderiing resources
+	ComPtr< IDXGISwapChain3 > m_spSwapChain;
+	ComPtr< ID3D12Resource > m_renderTargets[ FrameCount ];
+	ComPtr< ID3D12Resource > m_depthStencil;
 
 	// App resources.
 	ComPtr< ID3D12Resource > m_spVertexBuffer;
@@ -81,7 +91,7 @@ private:
 	UINT8* m_pCbvDataBegin = nullptr;
 
 	// Scene State
-	bool m_showDemoWindow = true;
+	bool m_showDemoWindow = false;
 	DirectX::XMFLOAT4 m_clearColor = { 0.45f, 0.55f, 0.60f, 1.0f };
 
 	// Synchronization objects.

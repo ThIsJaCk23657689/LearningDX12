@@ -13,8 +13,11 @@ HelloWindow::HelloWindow( uint32_t width, uint32_t height, std::wstring title ) 
 {
 }
 
-void HelloWindow::OnInit()
+void HelloWindow::OnInit( uint32_t width, uint32_t height )
 {
+	// width and height are the same as the window size.
+	SetWidthAndHeight( width, height );
+
 	LoadPipeline();
 	LoadAssets();
 	InitImGui();
@@ -110,8 +113,19 @@ void HelloWindow::OnDestroy()
 	CloseHandle( m_hFenceEvent );
 }
 
-// load the rendering pipeline dependencies.
-void HelloWindow::LoadPipeline()
+void HelloWindow::OnSizeChanged( uint32_t width, uint32_t height )
+{
+	if ( !m_spDevice )
+	{
+		// if device is not created, means no resources need to be recreated.
+		return;
+	}
+
+	SetWidthAndHeight( width, height );
+	CreateResources();
+}
+
+void HelloWindow::CreateDevice()
 {
 	UINT dxgiFactoryFlags = 0;
 
@@ -129,53 +143,31 @@ void HelloWindow::LoadPipeline()
 	}
 #endif
 
-	ComPtr< IDXGIFactory4 > spFactory;
-	ThrowIfFailed( CreateDXGIFactory2( dxgiFactoryFlags, IID_PPV_ARGS( &spFactory ) ) );
+	ThrowIfFailed( CreateDXGIFactory2( dxgiFactoryFlags, IID_PPV_ARGS( &m_spDxgiFactory ) ) );
 
-	// create device (not warp)
+	// get adpater
 	ComPtr< IDXGIAdapter1 > spHardwareAdapter;
-	GetHardwareAdapter( spFactory.Get(), &spHardwareAdapter );
+	GetHardwareAdapter( m_spDxgiFactory.Get(), &spHardwareAdapter );
+	
+	// create DX12 device
 	ThrowIfFailed( D3D12CreateDevice( spHardwareAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS( &m_spDevice ) ) );
-
+	
 	// create command queue
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 	ThrowIfFailed( m_spDevice->CreateCommandQueue( &queueDesc, IID_PPV_ARGS( &m_spCommandQueue ) ) );
 
-	// create swap chain
-	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-	swapChainDesc.BufferCount = FrameCount;
-	swapChainDesc.Width = m_width;
-	swapChainDesc.Height = m_height;
-	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	swapChainDesc.SampleDesc.Count = 1;
-	ComPtr< IDXGISwapChain1 > spSwapChain;
-	ThrowIfFailed( spFactory->CreateSwapChainForHwnd( m_spCommandQueue.Get(), // Swap chain needs the queue so that it can force a flush on it.
-													  Win32App::GetHwnd(),
-													  &swapChainDesc,
-													  nullptr,
-													  nullptr,
-													  &spSwapChain ) );
-
-	// this sample does not support fullscreen transitions.
-	ThrowIfFailed( spFactory->MakeWindowAssociation( Win32App::GetHwnd(), DXGI_MWA_NO_ALT_ENTER ) );
-
-	ThrowIfFailed( spSwapChain.As( &m_spSwapChain ) );
-	m_frameIndex = m_spSwapChain->GetCurrentBackBufferIndex();
-
 	// create descriptor heaps
 	{
-		// describe and create a render target view descriptor heap.
+		// describe and create a render target view descriptor heap
 		D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
 		rtvHeapDesc.NumDescriptors = FrameCount;
 		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 		ThrowIfFailed( m_spDevice->CreateDescriptorHeap( &rtvHeapDesc, IID_PPV_ARGS( &m_spRtvHeap ) ) );
 
-		// Describe and create a shader resource view (SRV) heap for the texture.
+		// Describe and create a shader resource view (SRV) heap for the texture
 		D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
 		srvHeapDesc.NumDescriptors = 3; // 0: ImGui, 1: Texture, 2: Constant Buffer
 		srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -186,22 +178,165 @@ void HelloWindow::LoadPipeline()
 		m_srvDescriptorSize = m_spDevice->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 	}
 
-	// create frame resources
+	// create a command allocator for each back buffer that will be rendered to
 	{
-		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle( m_spRtvHeap->GetCPUDescriptorHandleForHeapStart() );
+		for ( UINT n = 0; n < FrameCount; ++n )
+		{
+			ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_spCommandAllocator[ n ] ) ) );
+		}
+	}
+	// create a command allocator for bundle usage
+	ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS( &m_spBundleAllocator ) ) );
 
+	// create a command list for recording graphics commands.
+	m_frameIndex = 0;
+	ThrowIfFailed( m_spDevice->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_spCommandAllocator[ m_frameIndex ].Get(), nullptr, IID_PPV_ARGS( &m_spCommandList ) ) );
+	ThrowIfFailed( m_spCommandList->Close() );
+
+	// create a fence for tracking GPU execution progress => 
+	// fence wait until assets have been uploaded to the GPU.
+	{
+		ThrowIfFailed( m_spDevice->CreateFence( m_fenceValue[ m_frameIndex ], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_spFence ) ) );
+		m_fenceValue[ m_frameIndex ]++;
+
+		// Create an event handle to use for frame synchronization
+		m_hFenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
+		if ( !m_hFenceEvent )
+		{
+			ThrowIfFailed( HRESULT_FROM_WIN32( GetLastError() ) );
+		}
+
+		// Check Shader Model 6 support
+		D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = { D3D_SHADER_MODEL_6_0 };
+		if ( FAILED( m_spDevice->CheckFeatureSupport( D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof( shaderModel ) ) ) || 
+			 ( shaderModel.HighestShaderModel < D3D_SHADER_MODEL_6_0 ) )
+		{
+			throw std::runtime_error( "Shader Model 6.0 is not supported!" );
+		}
+	}
+
+	// Initialize device dependent objects here (independent of window size).
+}
+
+// Allocate all memory resources that change on a window SizeChanged event.
+void HelloWindow::CreateResources()
+{
+	// Wait until all previous GPU work is complete.
+	WaitForGpu();
+
+	// Release resources that are tied ti the swap chain and update fence values.
+	for ( UINT n = 0; n < FrameCount; ++n )
+	{
+		m_renderTargets[ n ].Reset();
+		m_fenceValue[ n ] = m_fenceValue[ m_frameIndex ];
+	}
+
+	constexpr DXGI_FORMAT backBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	constexpr DXGI_FORMAT depthBufferFormat = DXGI_FORMAT_D32_FLOAT;
+	const auto backBufferWidth = static_cast< UINT >( m_width );
+	const auto backBufferHeight = static_cast< UINT >( m_height );
+
+	// if the swap chain already exists, resize it, otherwise create one.
+	if ( m_spSwapChain )
+	{
+		auto hr = m_spSwapChain->ResizeBuffers( FrameCount, backBufferWidth, backBufferHeight, backBufferFormat, 0 );
+		if ( hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET )
+		{
+			// If the device was removed for any reason, a new device and swap chain will need to be created.
+			OnDeviceLost();
+
+			// Everything is set up now. Do not continue execution of this method. OnDeviceLost will reenter this method
+			// and correctly set up the new device.
+			return;
+		}
+		else
+		{
+			ThrowIfFailed( hr );
+		}
+	}
+	else
+	{
+		// create swap chain
+		DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
+		swapChainDesc.BufferCount = FrameCount;
+		swapChainDesc.Width = backBufferWidth;
+		swapChainDesc.Height = backBufferHeight;
+		swapChainDesc.Format = backBufferFormat;
+		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+		swapChainDesc.SampleDesc.Count = 1;
+		swapChainDesc.SampleDesc.Quality = 0;
+		swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
+		swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+
+		DXGI_SWAP_CHAIN_FULLSCREEN_DESC fsSwapChainDesc = {};
+		fsSwapChainDesc.Windowed = TRUE;
+
+		ComPtr< IDXGISwapChain1 > spSwapChain;
+		ThrowIfFailed( m_spDxgiFactory->CreateSwapChainForHwnd( m_spCommandQueue.Get(), // Swap chain needs the queue so that it can force a flush on it.
+																Win32App::GetHwnd(),
+																&swapChainDesc,
+																&fsSwapChainDesc,
+																nullptr,
+																&spSwapChain ) );
+
+		ThrowIfFailed( spSwapChain.As( &m_spSwapChain ) );
+
+		// this template does not support exclusive fullscreen mode and prevents DXGI from responding to the ALT+ENTER shortcut
+		ThrowIfFailed( m_spDxgiFactory->MakeWindowAssociation( Win32App::GetHwnd(), DXGI_MWA_NO_ALT_ENTER ) );
+	}
+
+	// Obtain the back buffers for this window which will be the final render targets
+	// and create render target views for each of them.
+	{
 		// Crate a RTV for each frame.
 		for ( UINT n = 0; n < FrameCount; ++n )
 		{
 			ThrowIfFailed( m_spSwapChain->GetBuffer( n, IID_PPV_ARGS( &m_renderTargets[ n ] ) ) );
-			m_spDevice->CreateRenderTargetView( m_renderTargets[ n ].Get(), nullptr, rtvHandle );
-			rtvHandle.Offset( 1, m_rtvDescriptorSize );
 
-			ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_spCommandAllocator[ n ] ) ) );
+			wchar_t rtvName[ 25 ] = {};
+			swprintf_s( rtvName, L"Render Target %d", n );
+			m_renderTargets[ n ]->SetName( rtvName );
+			
+			auto rtvRootHandle = m_spRtvHeap->GetCPUDescriptorHandleForHeapStart();
+			const CD3DX12_CPU_DESCRIPTOR_HANDLE rtvCurrentHandle( rtvRootHandle, static_cast< INT >( n ), m_rtvDescriptorSize );
+			m_spDevice->CreateRenderTargetView( m_renderTargets[ n ].Get(), nullptr, rtvCurrentHandle );
 		}
 	}
-	
-	ThrowIfFailed( m_spDevice->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS( &m_spBundleAllocator ) ) );
+
+	// Reset the frame index to the current back buffer.
+	m_frameIndex = m_spSwapChain->GetCurrentBackBufferIndex();
+
+	// TODO: Depth Stencil
+}
+
+void HelloWindow::OnDeviceLost()
+{
+	for ( UINT n = 0; n < FrameCount; ++n )
+	{
+		m_spCommandAllocator[ n ].Reset();
+		m_renderTargets[ n ].Reset();
+	}
+	m_spBundleAllocator.Reset();
+
+	// depth stencil
+	m_spFence.Reset();
+	m_spBundle.Reset();
+	m_spCommandList.Reset();
+	m_spSwapChain.Reset();
+	m_spRtvHeap.Reset();
+	m_spSrvHeap.Reset();
+	m_spCommandQueue.Reset();
+	m_spDxgiFactory.Reset();
+
+	LoadPipeline();
+}
+
+// load the rendering pipeline dependencies.
+void HelloWindow::LoadPipeline()
+{
+	CreateDevice();
+	CreateResources();
 }
 
 // Load the sample assets.
@@ -557,23 +692,7 @@ void HelloWindow::LoadAssets()
 		ThrowIfFailed( m_spBundle->Close() );
 	}
 
-	// Create synchronization objects and wait until assets have been uploaded to the GPU.
-	{
-		ThrowIfFailed( m_spDevice->CreateFence( m_fenceValue[ m_frameIndex ], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_spFence ) ) );
-		m_fenceValue[ m_frameIndex ]++;
-
-		// Create an event handle to use for frame synchronization
-		m_hFenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
-		if ( !m_hFenceEvent )
-		{
-			ThrowIfFailed( HRESULT_FROM_WIN32( GetLastError() ) );
-		}
-
-		// Wait for the command list to execute; we are reusing the same command
-		// list in our main loop but for now, we just want to wait for setup to
-		// complete before continuing.
-		WaitForGpu();
-	}
+	WaitForGpu();
 }
 
 void HelloWindow::InitImGui()
@@ -676,6 +795,11 @@ void HelloWindow::RenderImGui()
 // Wait for pending GPU work to complete.
 void HelloWindow::WaitForGpu()
 {
+	if ( !m_spCommandQueue || !m_spFence )
+	{
+		return;
+	}
+
 	// Scheudle a Signal command in the queue.
 	ThrowIfFailed( m_spCommandQueue->Signal( m_spFence.Get(), m_fenceValue[ m_frameIndex ] ) );
 

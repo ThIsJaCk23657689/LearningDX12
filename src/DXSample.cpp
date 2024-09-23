@@ -4,15 +4,13 @@
 using Microsoft::WRL::ComPtr;
 
 DXSample::DXSample( uint32_t width, uint32_t height, std::wstring title ) :
-    m_width( width ),
-    m_height( height ),
     m_title( title )
 {
+    SetWidthAndHeight( width, height );
+
     WCHAR assetsPath[ 512 ];
     GetAssetsPath( assetsPath, _countof( assetsPath ) );
     m_assesPath = assetsPath;
-
-	m_aspectRatio = static_cast< float >( width ) / static_cast< float >( height );
 }
 
 DXSample::~DXSample()
@@ -29,6 +27,12 @@ void DXSample::OnTick()
     OnRender();
 }
 
+void DXSample::OnResuming()
+{
+    m_kTimer.ResetElapsedTime();
+
+}
+
 _Use_decl_annotations_
 void DXSample::ParseCommandLineArgs( wchar_t* argv[], int argc )
 {
@@ -38,6 +42,13 @@ void DXSample::ParseCommandLineArgs( wchar_t* argv[], int argc )
 std::wstring DXSample::GetAssetFullPath( LPCWSTR assertName )
 {
     return m_assesPath + assertName;
+}
+
+void DXSample::SetWidthAndHeight( uint32_t width, uint32_t height )
+{
+	m_width = max( width, 1 );
+	m_height = max( height, 1 );
+	m_aspectRatio = static_cast< float >( width ) / static_cast< float >( height );
 }
 
 // Helper function for acquiring the first available hardware adapter that supports Direct3D 12.
