@@ -1,6 +1,8 @@
 # Learnging DirectX 12
 nothing to say.... I just want to learning DirectX 12 and try to understand how it works.
 
+![screenshot](./assets/screenshots/result.jpg)
+
 ## Prerequisites
 You need to enable the Windows developer mode to allow the symbolic link creation. Here is how to do it:
 1. Open powershell as administrator
@@ -19,3 +21,8 @@ $ cd LearningDX12
 $ cmake -S . -B out/debug -D CMAKE_BUILD_TYPE=Debug -G Ninja
 $ cmake --build out/debug
 ```
+
+## Todo
+* seprate the render pipeline into different classes
+* camera
+* light
