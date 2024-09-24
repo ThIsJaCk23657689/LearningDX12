@@ -4,12 +4,13 @@
 #include "stb_image.h"
 
 #include <string>
-#include <locale>
-#include <codecvt>
+#include <Windows.h>
 std::string WstrToStr( const std::wstring& wstr )
 {
-	std::wstring_convert< std::codecvt_utf8< wchar_t >, wchar_t > converter;
-	return converter.to_bytes( wstr );
+	int size_needed = WideCharToMultiByte( CP_UTF8, 0, wstr.c_str(), ( int ) wstr.size(), NULL, 0, NULL, NULL );
+	std::string str( size_needed, 0 );
+	WideCharToMultiByte( CP_UTF8, 0, wstr.c_str(), ( int ) wstr.size(), &str[ 0 ], size_needed, NULL, NULL );
+	return str;
 }
 
 Texture2DPtr TextureManager::CreateTexture2D( const std::wstring& filename )
