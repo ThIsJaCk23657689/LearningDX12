@@ -4,6 +4,9 @@
 #include "HelloWindow.hpp"
 #include "Texture.hpp"
 
+CD3DX12_HEAP_PROPERTIES HeapPropertiesFactory::m_upload( D3D12_HEAP_TYPE_UPLOAD );
+CD3DX12_HEAP_PROPERTIES HeapPropertiesFactory::m_default( D3D12_HEAP_TYPE_DEFAULT );
+
 HelloWindow::HelloWindow( uint32_t width, uint32_t height, std::wstring title ) :
 	DXSample( width, height, title ),
 	m_frameIndex( 0 ),
@@ -566,11 +569,11 @@ void HelloWindow::LoadAssets()
 		// Every time the GPU needs it, the upload heap will be marshalled over.
 		// Please read up on Default Heap usage. An upload heap is used here for code simplicity and
 		// because there are very few vertices to actually transfer.
-		auto uploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer( vertexBufferSize );
+		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer( vertexBufferSize );
 		ThrowIfFailed( m_spDevice->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_UPLOAD ),
+			HeapPropertiesFactory::GetUploadHeapProperties(),
 			D3D12_HEAP_FLAG_NONE,
-			&uploadBufferDesc,
+			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS( &spVertexBufferUploadHeap )
@@ -584,17 +587,18 @@ void HelloWindow::LoadAssets()
 		spVertexBufferUploadHeap->Unmap( 0, nullptr );
 
 		// create vertex buffer in default heap
-		auto vertexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer( vertexBufferSize );
 		ThrowIfFailed( m_spDevice->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_DEFAULT ),
+			HeapPropertiesFactory::GetDefaultHeapProperties(),
 			D3D12_HEAP_FLAG_NONE,
-			&vertexBufferDesc,
+			&bufferDesc,
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			nullptr,
 			IID_PPV_ARGS( &m_spVertexBuffer )
 		) );
 		m_spCommandList->CopyBufferRegion( m_spVertexBuffer.Get(), 0, spVertexBufferUploadHeap.Get(), 0, vertexBufferSize );
-		m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_spVertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER ) );
+
+		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition( m_spVertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER );
+		m_spCommandList->ResourceBarrier( 1, &barrier );
 
 		// Initialize the vertex buffer view.
 		m_spVertexBufferView.BufferLocation = m_spVertexBuffer->GetGPUVirtualAddress();
@@ -628,10 +632,11 @@ void HelloWindow::LoadAssets()
 
 		const size_t indexBufferSize = indices.size() * sizeof( uint16_t );
 
+		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer( indexBufferSize );
 		ThrowIfFailed( m_spDevice->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_UPLOAD ),
+			HeapPropertiesFactory::GetUploadHeapProperties(),
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer( indexBufferSize ),
+			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS( &spIndexBufferUploadHeap )
@@ -646,15 +651,17 @@ void HelloWindow::LoadAssets()
 
 		// create vertex buffer in default heap
 		ThrowIfFailed( m_spDevice->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_DEFAULT ),
+			HeapPropertiesFactory::GetDefaultHeapProperties(),
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer( indexBufferSize ),
+			&bufferDesc,
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			nullptr,
 			IID_PPV_ARGS( &m_spIndexBuffer )
 		) );
 		m_spCommandList->CopyBufferRegion( m_spIndexBuffer.Get(), 0, spIndexBufferUploadHeap.Get(), 0, indexBufferSize );
-		m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_spIndexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER ) );
+		
+		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition( m_spIndexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER );
+		m_spCommandList->ResourceBarrier( 1, &barrier );
 
 		// Initialize the vertex buffer view.
 		m_spIndexBufferView.BufferLocation = m_spIndexBuffer->GetGPUVirtualAddress();
@@ -684,7 +691,7 @@ void HelloWindow::LoadAssets()
 		textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
 		ThrowIfFailed( m_spDevice->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_DEFAULT ),
+			HeapPropertiesFactory::GetDefaultHeapProperties(),
 			D3D12_HEAP_FLAG_NONE,
 			&textureDesc,
 			D3D12_RESOURCE_STATE_COPY_DEST,
@@ -695,10 +702,11 @@ void HelloWindow::LoadAssets()
 		const UINT64 uploadBufferSize = GetRequiredIntermediateSize( m_spTexture.Get(), 0, 1 );
 
 		// Create the GPU upload buffer.
+		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer( uploadBufferSize );
 		ThrowIfFailed( m_spDevice->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_UPLOAD ),
+			HeapPropertiesFactory::GetUploadHeapProperties(),
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer( uploadBufferSize ),
+			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS( &spTextureUploadHeap )
@@ -712,7 +720,9 @@ void HelloWindow::LoadAssets()
 		textureData.SlicePitch = textureData.RowPitch * spTexture->height;
 
 		UpdateSubresources( m_spCommandList.Get(), m_spTexture.Get(), spTextureUploadHeap.Get(), 0, 0, 1, &textureData );
-		m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_spTexture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE ) );
+		
+		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition( m_spTexture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
+		m_spCommandList->ResourceBarrier( 1, &barrier );
 
 		// Describe and create a SRV for the texture.
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -734,10 +744,11 @@ void HelloWindow::LoadAssets()
 	{
 		const UINT constantBufferSize = sizeof( SceneConstantBuffer );
 
+		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer( constantBufferSize );
 		ThrowIfFailed( m_spDevice->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_UPLOAD ),
+			HeapPropertiesFactory::GetUploadHeapProperties(),
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer( constantBufferSize ),
+			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS( &m_spConstantBuffer )
@@ -823,7 +834,8 @@ void HelloWindow::PopulateCommandList()
 	m_spCommandList->SetGraphicsRootDescriptorTable( 1, constantHandle );
 
 	// Indicate that the back buffer will be used as a render target.
-	m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_renderTargets[ m_frameIndex ].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET ) );
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition( m_renderTargets[ m_frameIndex ].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET );
+	m_spCommandList->ResourceBarrier( 1, &barrier );
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle( m_spRtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize );
 	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle( m_spDsvHeap->GetCPUDescriptorHandleForHeapStart() );
@@ -846,7 +858,8 @@ void HelloWindow::PopulateCommandList()
 	ImGui_ImplDX12_RenderDrawData( ImGui::GetDrawData(), m_spCommandList.Get() );
 
 	// Indicate that the back buffer will now be used to present.
-	m_spCommandList->ResourceBarrier( 1, &CD3DX12_RESOURCE_BARRIER::Transition( m_renderTargets[ m_frameIndex ].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT ) );
+	barrier = CD3DX12_RESOURCE_BARRIER::Transition( m_renderTargets[ m_frameIndex ].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT );
+	m_spCommandList->ResourceBarrier( 1, &barrier );
 
 	ThrowIfFailed( m_spCommandList->Close() );
 }

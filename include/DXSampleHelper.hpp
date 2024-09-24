@@ -47,3 +47,24 @@ inline void GetAssetsPath( _Out_writes_( pathSize ) WCHAR* path, UINT pathSize )
 		*( lastSlash + 1 ) = L'\0';
 	}
 }
+
+// Temp
+class HeapPropertiesFactory
+{
+public:
+	static CD3DX12_HEAP_PROPERTIES* GetUploadHeapProperties()
+	{
+		return &m_upload;
+	}
+
+	static CD3DX12_HEAP_PROPERTIES* GetDefaultHeapProperties()
+	{
+		return &m_default;
+	}
+
+private:
+	static CD3DX12_HEAP_PROPERTIES m_upload;
+	static CD3DX12_HEAP_PROPERTIES m_default;
+
+};
+
