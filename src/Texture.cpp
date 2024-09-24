@@ -1,17 +1,8 @@
 #include "Texture.hpp"
+#include "DXSampleHelper.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-
-#include <string>
-#include <Windows.h>
-std::string WstrToStr( const std::wstring& wstr )
-{
-	int size_needed = WideCharToMultiByte( CP_UTF8, 0, wstr.c_str(), ( int ) wstr.size(), NULL, 0, NULL, NULL );
-	std::string str( size_needed, 0 );
-	WideCharToMultiByte( CP_UTF8, 0, wstr.c_str(), ( int ) wstr.size(), &str[ 0 ], size_needed, NULL, NULL );
-	return str;
-}
 
 Texture2DPtr TextureManager::CreateTexture2D( const std::wstring& filename )
 {
