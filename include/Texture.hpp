@@ -20,11 +20,11 @@ public:
 	Texture2D();
 	~Texture2D();
 
-	uint32_t width = 0;
-	uint32_t height = 0;
+	size_t width = 0;
+	size_t height = 0;
 
 	// The number of bytes used to represent a pixel in the texture.
-	uint32_t pixelSize = 0;
+	size_t pixelSize = 0;
 
 	uint8_t* data;
 

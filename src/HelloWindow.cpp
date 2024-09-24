@@ -39,7 +39,7 @@ void HelloWindow::OnUpdate( const StepTimer& kTimer )
 		model = XMMatrixIdentity();
 
 		// Rotate
-		float angle = Math::Radians( 50.0f ) * fCurrentTime;
+		auto angle = static_cast< float >( Math::Radians( 50.0f ) ) * fCurrentTime;
 		XMVECTOR rotationAxis = XMVectorSet( 0.5f, 1.0f, 0.0f, 0.0f );
 		XMMATRIX rotationMatrix = XMMatrixRotationAxis( rotationAxis, angle );
 
@@ -59,7 +59,7 @@ void HelloWindow::OnUpdate( const StepTimer& kTimer )
 	// View Project Matrix
 	{
 		XMMATRIX view = XMMatrixIdentity();
-		XMMATRIX proj = XMMatrixPerspectiveFovLH( Math::Radians( 45.0 ), m_aspectRatio, 0.1f, 1000.0f );
+		XMMATRIX proj = XMMatrixPerspectiveFovLH( static_cast< float >( Math::Radians( 45.0 ) ), m_aspectRatio, 0.1f, 1000.0f );
 
 		XMVECTOR cameraPos = XMVectorSet( 0.0f, 0.0f, -3.0f, 0.0f );
 		XMVECTOR cameraTarget = XMVectorSet( 0.0f, 0.0f, 0.0f, 0.0f );
@@ -464,8 +464,8 @@ void HelloWindow::LoadAssets()
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS     |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 
-		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-		rootSignatureDesc.Init_1_1( rootParameters.size(), rootParameters.data(), 1, &sampler, rootSignatureFlags );
+		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
+		rootSignatureDesc.Init_1_1( static_cast< UINT >( rootParameters.size() ), rootParameters.data(), 1, &sampler, rootSignatureFlags);
 
 		ComPtr< ID3DBlob > spSignature;
 		ComPtr< ID3DBlob > spError;
@@ -577,7 +577,7 @@ void HelloWindow::LoadAssets()
 		) );
 
 		// Copy the triangle data to the vertex buffer.
-		UINT8* pVertexDataBegin;
+		UINT8* pVertexDataBegin = nullptr;
 		CD3DX12_RANGE readRange( 0, 0 ); // we do not intend to read from this resource on the CPU.
 		ThrowIfFailed( spVertexBufferUploadHeap->Map( 0, &readRange, reinterpret_cast< void** >( &pVertexDataBegin ) ) );
 		memcpy( pVertexDataBegin, vertices.data(), vertexBufferSize );
@@ -599,7 +599,7 @@ void HelloWindow::LoadAssets()
 		// Initialize the vertex buffer view.
 		m_spVertexBufferView.BufferLocation = m_spVertexBuffer->GetGPUVirtualAddress();
 		m_spVertexBufferView.StrideInBytes = sizeof( Vertex );
-		m_spVertexBufferView.SizeInBytes = vertexBufferSize;
+		m_spVertexBufferView.SizeInBytes = static_cast< UINT >( vertexBufferSize );
 	}
 
 	// Create Index Buffer
@@ -638,7 +638,7 @@ void HelloWindow::LoadAssets()
 		) );
 
 		// Copy the triangle data to the vertex buffer.
-		UINT8* pIndexDataBegin;
+		UINT8* pIndexDataBegin = nullptr;
 		CD3DX12_RANGE readRange( 0, 0 ); // we do not intend to read from this resource on the CPU.
 		ThrowIfFailed( spIndexBufferUploadHeap->Map( 0, &readRange, reinterpret_cast< void** >( &pIndexDataBegin ) ) );
 		memcpy( pIndexDataBegin, indices.data(), indexBufferSize );
@@ -658,7 +658,7 @@ void HelloWindow::LoadAssets()
 
 		// Initialize the vertex buffer view.
 		m_spIndexBufferView.BufferLocation = m_spIndexBuffer->GetGPUVirtualAddress();
-		m_spIndexBufferView.SizeInBytes = indexBufferSize;
+		m_spIndexBufferView.SizeInBytes = static_cast< UINT >( indexBufferSize );
 		m_spIndexBufferView.Format = DXGI_FORMAT_R16_UINT;
 	}
 
@@ -675,8 +675,8 @@ void HelloWindow::LoadAssets()
 		D3D12_RESOURCE_DESC textureDesc = {};
 		textureDesc.MipLevels = 1;
 		textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		textureDesc.Width = spTexture->width;
-		textureDesc.Height = spTexture->height;
+		textureDesc.Width = static_cast< UINT >( spTexture->width );
+		textureDesc.Height = static_cast< UINT >( spTexture->height );
 		textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 		textureDesc.DepthOrArraySize = 1;
 		textureDesc.SampleDesc.Count = 1;

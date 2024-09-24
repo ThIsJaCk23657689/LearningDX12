@@ -66,8 +66,8 @@ private:
 	ComPtr< ID3D12GraphicsCommandList > m_spBundle;
 	ComPtr< ID3D12PipelineState > m_spPipelineState;
 	ComPtr< ID3D12RootSignature > m_spRootSignature;
-	UINT m_rtvDescriptorSize;
-	UINT m_srvDescriptorSize;
+	UINT m_rtvDescriptorSize = 0;
+	UINT m_srvDescriptorSize = 0;
 
 	// Backbuffer / Renderiing resources
 	ComPtr< IDXGISwapChain3 > m_spSwapChain;
@@ -76,18 +76,18 @@ private:
 
 	// App resources.
 	ComPtr< ID3D12Resource > m_spVertexBuffer;
-	D3D12_VERTEX_BUFFER_VIEW m_spVertexBufferView;
+	D3D12_VERTEX_BUFFER_VIEW m_spVertexBufferView = {};
 
 	ComPtr< ID3D12Resource > m_spIndexBuffer;
-	D3D12_INDEX_BUFFER_VIEW m_spIndexBufferView;
+	D3D12_INDEX_BUFFER_VIEW m_spIndexBufferView = {};
 
 	// Texture
 	ComPtr< ID3D12Resource > m_spTexture;
 
 	// Constant Buffer
 	ComPtr< ID3D12Resource > m_spConstantBuffer;
-	D3D12_INDEX_BUFFER_VIEW m_spConstantBufferView;
-	SceneConstantBuffer m_kConstantBuffer;
+	D3D12_INDEX_BUFFER_VIEW m_spConstantBufferView = {};
+	SceneConstantBuffer m_kConstantBuffer = {};
 	UINT8* m_pCbvDataBegin = nullptr;
 
 	// Scene State
@@ -95,8 +95,8 @@ private:
 	DirectX::XMFLOAT4 m_clearColor = { 0.45f, 0.55f, 0.60f, 1.0f };
 
 	// Synchronization objects.
-	UINT m_frameIndex;
-	Event m_fenceEvent;
+	UINT m_frameIndex = 0;
+	Event m_fenceEvent = {};
 	ComPtr < ID3D12Fence > m_spFence;
 	UINT64 m_fenceValue[ FrameCount ] = { 0, 0 };
 
