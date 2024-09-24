@@ -7,3 +7,6 @@
 [submodule "thirds/stb"]
 	path = thirds/stb
 	url = https://github.com/nothings/stb.git
+[submodule "thirds/imgui"]
+	path = thirds/imgui
+	url = https://github.com/ocornut/imgui.git

@@ -53,6 +53,8 @@ add_subdirectory(${DIRECTX_MATH_DIR} "${CMAKE_BINARY_DIR}/DirectXMath")
 file(GLOB MY_SOURCE CONFIGURE_DEPENDS
     "src/*.cpp"
     "thirds/imgui/*.cpp"
+    "thirds/imgui/backends/imgui_impl_win32.cpp"
+    "thirds/imgui/backends/imgui_impl_dx12.cpp"
 )
 target_sources(${MY_EXECUTABLE} PRIVATE ${MY_SOURCE})
 
@@ -62,6 +64,8 @@ target_include_directories(${MY_EXECUTABLE} PRIVATE
     "${DIRECTX_MATH_DIR}/Inc"
     "thirds/stb"
     "thirds/imgui"
+    "thirds/imgui/backends"
+)
 )
 target_link_libraries(${MY_EXECUTABLE} PRIVATE DirectX-Headers DirectX-Guids d3d12 dxgi d3dcompiler)
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
