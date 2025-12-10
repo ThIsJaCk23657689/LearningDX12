@@ -24,6 +24,8 @@ void HelloWindow::OnInit( uint32_t width, uint32_t height )
 	LoadAssets();
 	InitImGui();
 
+	// Check the raytracing capabilities of the device
+	CheckRayTracingSupport();
 	m_bIsInitialized = true;
 }
 
@@ -410,6 +412,15 @@ void HelloWindow::OnDeviceLost()
 	m_spDxgiFactory.Reset();
 
 	LoadPipeline();
+}
+
+void HelloWindow::OnKeyUp( UINT8 key )
+{
+	// Alternate between rasterization and raytracing using the spacebar
+	if ( key == VK_SPACE )
+	{
+		m_raster = !m_raster;
+	}
 }
 
 // load the rendering pipeline dependencies.
@@ -841,18 +852,27 @@ void HelloWindow::PopulateCommandList()
 	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle( m_spDsvHeap->GetCPUDescriptorHandleForHeapStart() );
 	m_spCommandList->OMSetRenderTargets( 1, &rtvHandle, FALSE, &dsvHandle );
 
-	const float clearColor[ 4 ] = { m_clearColor.x * m_clearColor.w, m_clearColor.y * m_clearColor.w, m_clearColor.z * m_clearColor.w, m_clearColor.w };
-	m_spCommandList->ClearRenderTargetView( rtvHandle, clearColor, 0, nullptr );
-	m_spCommandList->ClearDepthStencilView( dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr );
-
 	// Set the viewport and scissor rect.
 	const CD3DX12_VIEWPORT viewport( 0.0f, 0.0f, static_cast< float >( m_width ), static_cast< float >( m_height ), D3D12_MIN_DEPTH, D3D12_MAX_DEPTH );
 	const CD3DX12_RECT scissorRect( 0, 0, static_cast< LONG >( m_width ), static_cast< LONG >( m_height ) );
 	m_spCommandList->RSSetViewports( 1, &viewport );
 	m_spCommandList->RSSetScissorRects( 1, &scissorRect );
 
-	// Draw the scene
-	m_spCommandList->ExecuteBundle( m_spBundle.Get() );
+	if ( m_raster )
+	{
+		const float clearColor[ 4 ] = { m_clearColor.x * m_clearColor.w, m_clearColor.y * m_clearColor.w, m_clearColor.z * m_clearColor.w, m_clearColor.w };
+		m_spCommandList->ClearRenderTargetView( rtvHandle, clearColor, 0, nullptr );
+		m_spCommandList->ClearDepthStencilView( dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr );
+
+		// Draw the scene
+		m_spCommandList->ExecuteBundle( m_spBundle.Get() );
+	}
+	else
+	{
+		const float clearColor[ 4 ] = { 0.6f, 0.8f, 0.4f, 1.0f };
+		m_spCommandList->ClearRenderTargetView( rtvHandle, clearColor, 0, nullptr );
+		m_spCommandList->ClearDepthStencilView( dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr );
+	}
 
 	// Render ImGui
 	ImGui_ImplDX12_RenderDrawData( ImGui::GetDrawData(), m_spCommandList.Get() );
@@ -926,4 +946,14 @@ void HelloWindow::MoveToNextFrame()
 
 	// Set the fence value for the next frame.
 	m_fenceValue[ m_frameIndex ] = currentFenceValue + 1;
+}
+
+void HelloWindow::CheckRayTracingSupport()
+{
+	D3D12_FEATURE_DATA_D3D12_OPTIONS5 kOptions5 = {};
+	ThrowIfFailed( m_spDevice->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &kOptions5, sizeof( kOptions5 ) ) );
+	if ( kOptions5.RaytracingTier < D3D12_RAYTRACING_TIER_1_0 )
+	{
+		throw std::runtime_error( "RayTracing not supported on device" );
+	}
 }

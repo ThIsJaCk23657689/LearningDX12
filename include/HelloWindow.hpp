@@ -20,6 +20,7 @@ private:
 	virtual void CreateDevice();
 	virtual void CreateResources();
 	virtual void OnDeviceLost();
+	virtual void OnKeyUp( UINT8 key );
 
 	void LoadPipeline();
 	void LoadAssets();
@@ -28,6 +29,7 @@ private:
 	void RenderImGui();
 	void WaitForGpu();
 	void MoveToNextFrame();
+	void CheckRayTracingSupport();
 
 	// In the sample we overload the meaning of FrameCount to mean both the maximum
 	// number of frames that will be queued to the GPU at a time, as well as the number
@@ -99,5 +101,8 @@ private:
 	Event m_fenceEvent = {};
 	ComPtr < ID3D12Fence > m_spFence;
 	UINT64 m_fenceValue[ FrameCount ] = { 0, 0 };
+
+	// Raytracing
+	bool m_raster = true;
 
 };
