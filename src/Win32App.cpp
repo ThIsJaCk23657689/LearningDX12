@@ -264,9 +264,14 @@ LRESULT CALLBACK Win32App::WindowProc( HWND hWnd, UINT message, WPARAM wParam, L
 
 		case WM_KEYDOWN:
 		{
+			const auto key = static_cast< uint8_t >( wParam );
+			if ( key == VK_ESCAPE )
+			{
+				PostQuitMessage( 0 );
+			}
 			if ( pSample )
 			{
-				pSample->OnKeyDown( static_cast< uint8_t >( wParam ) );
+				pSample->OnKeyDown( key );
 			}
 			return 0;
 		}
